@@ -68,7 +68,7 @@ el prompt (comportamiento equivalente, peor aislamiento).
 Después de que el proceso de `opencode` termine, el runner ejecuta:
 
 ```sh
-opencode session export <sessionID> --sanitize
+opencode session export <sessionID> --sanitize --standalone
 ```
 
 y suma los mensajes de tipo `assistant` con `time.created >= startedAt`:
