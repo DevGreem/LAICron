@@ -51,7 +51,7 @@
 
 ## 9. Instalación y documentación
 
-- [ ] 9.1 Crear la unidad systemd `--user` y `install.sh`, y verificar que `systemctl --user status local-ai-cron` queda activo y que tras reiniciar el equipo sigue activo
+- [ ] 9.1 Crear la unidad systemd `--user` y `install.sh`, y verificar que `systemctl --user status laicron` queda activo y que tras reiniciar el equipo sigue activo
 - [ ] 9.2 Crear la entrada `.desktop` y verificar que la aplicación aparece en el menú de GNOME y abre la ventana
 - [ ] 9.3 Crear `uninstall.sh`, y verificar que detiene y elimina la unidad y la entrada de menú, y que conserva la base de datos salvo confirmación
 - [ ] 9.4 Documentar instalación, uso y solución de problemas en `~/Documents/Documentation` y actualizar el README, y verificar que los comandos documentados funcionan tal como están escritos

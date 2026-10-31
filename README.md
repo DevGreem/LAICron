@@ -1,4 +1,4 @@
-# Local AI Cron
+# LAICron
 
 Planificador local tipo cron que ejecuta **prompts de IA** —o cualquier comando— cada cierto
 tiempo, con aplicación de escritorio, notificaciones, historial tipo chat y recuperación de
@@ -12,7 +12,7 @@ ejecuciones perdidas.
 "crons con IA" de OpenAI y Anthropic resuelven eso, pero son en la nube, con su modelo y su
 cuenta. Y las apps de escritorio con tareas programadas exigen tener la app abierta.
 
-Local AI Cron junta las tres piezas que hoy están separadas:
+LAICron junta las tres piezas que hoy están separadas:
 
 - el **cuándo** de cron,
 - el **qué** de `opencode` (o del comando que tú elijas),
@@ -77,4 +77,4 @@ openspec show <cambio> # proposal + specs + design + tasks
 
 ## Licencia
 
-Pendiente de decidir.
+MIT. Ver [LICENSE](LICENSE).

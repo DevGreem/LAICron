@@ -49,7 +49,7 @@ tiene más de 60 s.
 
 ### D2. SQLite con `node:sqlite`
 
-Una sola base en `~/.local/share/local-ai-cron/local-ai-cron.db`, en modo WAL.
+Una sola base en `~/.local/share/laicron/laicron.db`, en modo WAL.
 
 **Por qué:** el daemon escribe y la UI lee en paralelo; WAL permite eso sin bloqueos. `node:sqlite`
 viene con Node 22 y evita compilar dependencias nativas.
@@ -115,7 +115,7 @@ del mismo cron.
 ### D8. API local con token
 
 HTTP en `127.0.0.1`, puerto fijo configurable (por defecto 7317), token de 32 bytes en
-`~/.config/local-ai-cron/token` con permisos `0600`.
+`~/.config/laicron/token` con permisos `0600`.
 
 - `GET/POST/PATCH/DELETE /api/jobs`
 - `POST /api/jobs/:id/run`
@@ -138,7 +138,7 @@ navegador para depurar.
 
 ### D10. Notificaciones con `notify-send`
 
-Se invoca `notify-send -a "Local AI Cron"` con nombre, estado y duración. Un fallo del comando no
+Se invoca `notify-send -a "LAICron"` con nombre, estado y duración. Un fallo del comando no
 cambia el estado de la ejecución; solo marca `notification_delivered = false`.
 
 **Por qué no un servidor de notificaciones propio:** GNOME ya tiene uno y el bus de sesión está
@@ -209,6 +209,4 @@ No hay migración: es la primera versión.
 
 ## Open Questions
 
-- Nombre definitivo del binario (`lac` frente a `local-ai-cron`).
-- Licencia del repositorio.
 - Si el modo `all` de catch-up debe tener un límite distinto por tipo de cron.

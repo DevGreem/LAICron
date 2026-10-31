@@ -1,4 +1,4 @@
-# Proposal: Local AI Cron
+# Proposal: LAICron
 
 ## Why
 
@@ -9,7 +9,7 @@ tareas programadas (AgentCrew, forge, coworker) exigen tener la app abierta, y l
 sobreviven al cierre (`opencode-scheduler`) no tienen interfaz, ni notificaciones, ni historial, ni
 aceptan comandos que no sean de opencode.
 
-Local AI Cron cubre ese hueco: un planificador local, con app de escritorio, que ejecuta prompts de
+LAICron cubre ese hueco: un planificador local, con app de escritorio, que ejecuta prompts de
 IA —o comandos arbitrarios— aunque la app esté cerrada, avisa al terminar y guarda el historial.
 
 ## What Changes
@@ -51,8 +51,8 @@ Ninguna: el proyecto no tiene specs previas.
 - Código nuevo en `packages/core`, `packages/daemon`, `packages/ui` y `packages/platform/linux`.
 - Dependencias: Node 22, TypeScript, `node:sqlite`, `cron-parser`; PyGObject + WebKit2GTK del
   sistema para la ventana.
-- Sistema: unidad systemd `--user` (`local-ai-cron.service`), entrada `.desktop` y base de datos en
-  `~/.local/share/local-ai-cron/`.
+- Sistema: unidad systemd `--user` (`laicron.service`), entrada `.desktop` y base de datos en
+  `~/.local/share/laicron/`.
 - Seguridad: API solo en `127.0.0.1` con token; sin `--auto` de opencode por defecto; los crons
   corren con los permisos del usuario.
 - Fuera de alcance en v1: Windows/macOS, webhooks/Telegram/email, encadenar crons y editor visual
