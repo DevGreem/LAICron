@@ -4,6 +4,8 @@ export type CatchUpPolicy = "none" | "once" | "all";
 export type OverlapPolicy = "skip" | "queue" | "kill";
 export type SessionMode = "independent" | "continuous";
 export type NotifyOn = "always" | "failure" | "success";
+/** Per-cron MCP override. `inherit` is never stored: an absent key means inherited. */
+export type McpState = "on" | "off";
 export type RunTrigger = "scheduled" | "catch_up" | "manual";
 export type RunStatus =
   | "queued" | "running" | "success" | "failed" | "timeout" | "skipped" | "interrupted";
@@ -17,6 +19,7 @@ export interface Job {
   scheduleKind: ScheduleKind; scheduleExpr: string; timezone: string;
   catchUp: CatchUpPolicy; catchUpLimit: number; overlap: OverlapPolicy;
   timeoutSec: number; notify: boolean; notifyOn: NotifyOn;
+  mcpOverrides: Record<string, McpState>;
   nextRunAt: number | null; lastRunAt: number | null; lastStatus: RunStatus | null;
   createdAt: number; updatedAt: number;
 }

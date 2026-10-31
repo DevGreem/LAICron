@@ -1,6 +1,7 @@
 import type {
   CatchUpPolicy,
   Job,
+  McpState,
   Message,
   NotifyOn,
   OverlapPolicy,
@@ -82,6 +83,33 @@ function parseArgs(value: unknown): string[] {
   return [];
 }
 
+function parseMcpOverrides(value: unknown): Record<string, McpState> {
+  if (typeof value !== "string") {
+    return {};
+  }
+  let parsed: unknown;
+  try {
+    parsed = JSON.parse(value);
+  } catch {
+    // Corrupt JSON means "everything inherited" instead of breaking the whole job.
+    return {};
+  }
+  if (parsed === null || typeof parsed !== "object" || Array.isArray(parsed)) {
+    return {};
+  }
+
+  const overrides: Record<string, McpState> = {};
+  for (const [key, state] of Object.entries(parsed as Record<string, unknown>)) {
+    if (key.trim().length === 0 || (state !== "on" && state !== "off")) {
+      // Unknown values are dropped along with the rest: a partial override set would silently
+      // change behaviour, so an unreadable row falls back to fully inherited.
+      return {};
+    }
+    overrides[key] = state;
+  }
+  return overrides;
+}
+
 export function toJob(row: Row): Job {
   return {
     id: asString(row["id"]),
@@ -105,6 +133,7 @@ export function toJob(row: Row): Job {
     timeoutSec: asNumber(row["timeout_sec"]),
     notify: asBoolean(row["notify"], true),
     notifyOn: asString(row["notify_on"]) as NotifyOn,
+    mcpOverrides: parseMcpOverrides(row["mcp_overrides"]),
     nextRunAt: asNullableNumber(row["next_run_at"]),
     lastRunAt: asNullableNumber(row["last_run_at"]),
     lastStatus: asNullableString(row["last_status"]) as RunStatus | null,

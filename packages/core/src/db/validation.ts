@@ -2,6 +2,7 @@ import { homedir } from "node:os";
 
 import type {
   CatchUpPolicy,
+  McpState,
   NotifyOn,
   OverlapPolicy,
   RunnerKind,
@@ -17,6 +18,8 @@ const CATCH_UP_POLICIES: readonly CatchUpPolicy[] = ["none", "once", "all"];
 const OVERLAP_POLICIES: readonly OverlapPolicy[] = ["skip", "queue", "kill"];
 const SESSION_MODES: readonly SessionMode[] = ["independent", "continuous"];
 const NOTIFY_ON_VALUES: readonly NotifyOn[] = ["always", "failure", "success"];
+const MCP_STATES: readonly McpState[] = ["on", "off"];
+const MAX_MCP_OVERRIDES = 100;
 
 /** Job fields with every default already applied but no validation performed yet. */
 export interface ResolvedJobFields {
@@ -40,6 +43,7 @@ export interface ResolvedJobFields {
   timeoutSec: number;
   notify: boolean;
   notifyOn: NotifyOn;
+  mcpOverrides: Record<string, McpState>;
 }
 
 function systemTimezone(): string {
@@ -69,6 +73,7 @@ export function applyJobDefaults(input: CreateJobInput): ResolvedJobFields {
     timeoutSec: input.timeoutSec ?? 600,
     notify: input.notify ?? true,
     notifyOn: input.notifyOn ?? "always",
+    mcpOverrides: normalizeMcpOverrides(input.mcpOverrides),
   };
 }
 
@@ -78,6 +83,34 @@ function fail(field: string, message: string): never {
 
 function isNonEmptyString(value: unknown): value is string {
   return typeof value === "string" && value.trim().length > 0;
+}
+
+/**
+ * Normalizes the MCP overrides accepted by the API. `undefined` means everything is inherited,
+ * `"inherit"` and empty names are dropped, and any other value outside `on`/`off` is rejected.
+ */
+export function normalizeMcpOverrides(value: unknown): Record<string, McpState> {
+  if (value === undefined || value === null) {
+    return {};
+  }
+  if (typeof value !== "object" || Array.isArray(value)) {
+    fail("mcpOverrides", "Los MCPs deben ser un objeto de nombre a on u off.");
+  }
+
+  const entries: Array<[string, McpState]> = [];
+  for (const [name, state] of Object.entries(value)) {
+    if (name.trim().length === 0 || state === "inherit") {
+      continue;
+    }
+    if (!MCP_STATES.includes(state as McpState)) {
+      fail("mcpOverrides", `El estado del MCP ${name} debe ser on u off.`);
+    }
+    entries.push([name, state as McpState]);
+  }
+  if (entries.length > MAX_MCP_OVERRIDES) {
+    fail("mcpOverrides", `No se pueden fijar más de ${MAX_MCP_OVERRIDES} MCPs.`);
+  }
+  return Object.fromEntries(entries);
 }
 
 function isValidTimezone(value: unknown): boolean {
