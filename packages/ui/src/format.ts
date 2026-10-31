@@ -65,6 +65,28 @@ const dateTimeFormatter = new Intl.DateTimeFormat("es-ES", {
   timeStyle: "short",
 });
 
+const tokenFormatter = new Intl.NumberFormat("es-ES");
+
+/** Formats a token count with Spanish thousands separators. */
+export function formatTokens(value: number): string {
+  if (!Number.isFinite(value)) {
+    return "—";
+  }
+  return tokenFormatter.format(value);
+}
+
+/**
+ * Formats a USD cost. Zero uses two decimals, normal amounts four and
+ * sub-cent amounts six so tiny per-run costs stay visible.
+ */
+export function formatCost(value: number): string {
+  if (!Number.isFinite(value) || value === 0) {
+    return "$0.00";
+  }
+  const magnitude = Math.abs(value);
+  return `$${value.toFixed(magnitude >= 0.01 ? 4 : 6)}`;
+}
+
 /** Formats an epoch in milliseconds with the agreed Spanish short format. */
 export function formatDateTime(value: number | null): string {
   if (value === null || !Number.isFinite(value)) {

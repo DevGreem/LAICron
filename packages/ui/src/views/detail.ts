@@ -4,8 +4,10 @@ import type { Child } from "../dom.js";
 import { button, h } from "../dom.js";
 import {
   CATCH_UP_LABELS,
+  formatCost,
   formatDateTime,
   formatDuration,
+  formatTokens,
   NOTIFY_ON_LABELS,
   OVERLAP_LABELS,
   RUNNER_LABELS,
@@ -13,7 +15,7 @@ import {
   SESSION_MODE_LABELS,
   scheduleSummary,
 } from "../format.js";
-import type { Job, Message, MessagePage, Run, RunPage } from "../types.js";
+import type { Job, JobUsage, Message, MessagePage, Run, RunPage } from "../types.js";
 import {
   emptyPanel,
   enabledBadge,
@@ -63,6 +65,12 @@ function runRow(run: Run): HTMLElement {
     errorCell.title = run.error;
   }
 
+  const hasTokens = run.inputTokens !== null || run.outputTokens !== null;
+  const tokensText = hasTokens
+    ? formatTokens((run.inputTokens ?? 0) + (run.outputTokens ?? 0))
+    : "—";
+  const costText = run.costUsd === null ? "—" : formatCost(run.costUsd);
+
   return h(
     "tr",
     {},
@@ -70,6 +78,8 @@ function runRow(run: Run): HTMLElement {
     h("td", { text: RUN_TRIGGER_LABELS[run.trigger] }),
     h("td", { text: formatDateTime(run.startedAt) }),
     h("td", { text: formatDuration(run.durationMs) }),
+    h("td", { class: "mono usage-cell", text: tokensText }),
+    h("td", { class: "mono usage-cell", text: costText }),
     h("td", { class: "mono", text: run.exitCode === null ? "—" : String(run.exitCode) }),
     errorCell,
   );
@@ -224,6 +234,8 @@ export function createDetailView(ctx: AppContext, jobId: string): View {
             h("th", { text: "Disparador", attrs: { scope: "col" } }),
             h("th", { text: "Inicio", attrs: { scope: "col" } }),
             h("th", { text: "Duración", attrs: { scope: "col" } }),
+            h("th", { text: "Tokens", attrs: { scope: "col" } }),
+            h("th", { text: "Coste", attrs: { scope: "col" } }),
             h("th", { text: "Código de salida", attrs: { scope: "col" } }),
             h("th", { text: "Error", attrs: { scope: "col" } }),
           ),
@@ -259,6 +271,55 @@ export function createDetailView(ctx: AppContext, jobId: string): View {
         "Más antiguas",
       ),
     );
+  }
+
+  function usageSection(job: Job, usage: JobUsage): HTMLElement {
+    const card = h("div", { class: "usage-card", attrs: { id: "job-usage" } });
+
+    if (usage.runsWithUsage === 0) {
+      card.append(h("p", { class: "usage-empty", text: "Todavía no hay datos de consumo." }));
+    } else {
+      card.append(
+        h(
+          "div",
+          { class: "usage-grid" },
+          h(
+            "div",
+            { class: "usage-metric" },
+            h("span", { class: "usage-label", text: "Coste total" }),
+            h("span", { class: "usage-cost", text: formatCost(usage.costUsd) }),
+          ),
+          h(
+            "div",
+            { class: "usage-metric" },
+            h("span", { class: "usage-label", text: "Tokens" }),
+            h("span", {
+              class: "usage-tokens",
+              text: formatTokens(usage.inputTokens + usage.outputTokens),
+            }),
+          ),
+          h("span", {
+            class: "usage-breakdown",
+            text: `Entrada ${formatTokens(usage.inputTokens)} · Salida ${formatTokens(usage.outputTokens)}`,
+          }),
+        ),
+        h("p", {
+          class: "usage-runs",
+          text: `${usage.runsWithUsage} de ${usage.runs} ejecuciones con datos`,
+        }),
+      );
+    }
+
+    if (job.sessionMode === "continuous") {
+      card.append(
+        h("p", {
+          class: "usage-note",
+          text: "En modo continuo, la entrada incluye el historial de la sesión.",
+        }),
+      );
+    }
+
+    return section("Consumo", null, card);
   }
 
   function chatSection(page: MessagePage): HTMLElement {
@@ -301,7 +362,7 @@ export function createDetailView(ctx: AppContext, jobId: string): View {
     );
   }
 
-  function render(job: Job, runsPage: RunPage, messagesPage: MessagePage): void {
+  function render(job: Job, runsPage: RunPage, messagesPage: MessagePage, usage: JobUsage): void {
     hasData = true;
     const backLink = h("a", {
       class: "btn btn-ghost",
@@ -344,6 +405,7 @@ export function createDetailView(ctx: AppContext, jobId: string): View {
     content.replaceChildren(
       pageHeader(job.name, `Cron ${job.id}`, [backLink, toggleButton, editLink, runButton]),
       h("div", { class: "panel" }, detailsList(job)),
+      usageSection(job, usage),
       runsSection(runsPage),
       chatSection(messagesPage),
     );
@@ -352,15 +414,16 @@ export function createDetailView(ctx: AppContext, jobId: string): View {
   async function refresh(): Promise<void> {
     const current = ++generation;
     try {
-      const [job, runsPage, messagesPage] = await Promise.all([
+      const [job, runsPage, messagesPage, usage] = await Promise.all([
         ctx.api.getJob(jobId),
         ctx.api.listRuns(jobId, { limit: RUNS_LIMIT, offset: runsOffset }),
         loadMessages(),
+        ctx.api.getJobUsage(jobId),
       ]);
       if (disposed || current !== generation) {
         return;
       }
-      render(job, runsPage, messagesPage);
+      render(job, runsPage, messagesPage, usage);
     } catch (error) {
       if (disposed || current !== generation) {
         return;

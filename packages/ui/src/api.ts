@@ -4,12 +4,17 @@ import type {
   JobInput,
   JobListResponse,
   JobResponse,
+  JobUsage,
   MessagePage,
   OpencodeOptions,
   Run,
   RunPage,
   RunResponse,
 } from "./types.js";
+
+interface UsageResponse {
+  usage: JobUsage;
+}
 
 interface ErrorPayload {
   error?: {
@@ -173,6 +178,11 @@ export class ApiClient {
       offset: String(page.offset),
     });
     return this.request<RunPage>(`/api/jobs/${encodeURIComponent(id)}/runs?${query.toString()}`);
+  }
+
+  async getJobUsage(id: string): Promise<JobUsage> {
+    const data = await this.request<UsageResponse>(`/api/jobs/${encodeURIComponent(id)}/usage`);
+    return data.usage;
   }
 
   async listMessages(id: string, page: { limit: number; offset: number }): Promise<MessagePage> {
