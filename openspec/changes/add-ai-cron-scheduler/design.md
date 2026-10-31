@@ -126,10 +126,14 @@ HTTP en `127.0.0.1`, puerto fijo configurable (por defecto 7317), token de 32 by
 **Por qué token y no solo loopback:** cualquier proceso del usuario puede hablar con loopback; el
 token evita que un script olvidado o una web local lo haga sin permiso.
 
-### D9. UI web + ventana GTK4/WebKit2
+### D9. UI web + ventana GTK3/WebKit2 4.1
 
 La UI es una SPA estática servida por el daemon. La ventana es un lanzador Python de ~80 líneas que
 usa PyGObject y WebKit2GTK del sistema, sin `pip install`.
+
+**Por qué GTK3 y no GTK4:** en este equipo `WebKit2 4.1` es la variante GTK3 de WebKitGTK; para
+GTK4 haría falta WebKitGTK 6.0 (`gir1.2-webkit-6.0`), que no está instalado. GTK3 + WebKit2 4.1 sí
+carga y no añade dependencias. La spec solo exige una ventana de escritorio, no una versión de GTK.
 
 **Por qué:** cero dependencias nuevas, arranque rápido y la UI se puede abrir también en el
 navegador para depurar.
@@ -182,7 +186,7 @@ Solo tres piezas son específicas del sistema, y cada una detrás de una interfa
 | --- | --- | --- | --- |
 | `ServiceInstaller` | systemd `--user` | Tarea programada | `LaunchAgent` |
 | `Notifier` | `notify-send` | toast PowerShell | `osascript` |
-| `WindowLauncher` | GTK4 + WebKit2 | Edge `--app` | Chrome `--app` |
+| `WindowLauncher` | GTK3 + WebKit2 4.1 | Edge `--app` | Chrome `--app` |
 
 El resto (scheduler, SQLite, runners, API, UI) no sabe en qué sistema corre.
 
