@@ -30,6 +30,8 @@ Ventana GTK3/WebKit2 4.1 ──HTTP──> daemon (systemd --user) ──> openc
 ## Funciones
 
 - Crons con **prompt de IA** (`opencode run --format json`) o **comando de shell** (`sh -lc`).
+- Formulario con listas de **modelos, variantes y agentes** leídas de `opencode`, selector de zona
+  horaria con la hora actual y constructor de cron por campos con vista previa.
 - **Argumentos por cron**: posicionales en los comandos de shell (`$1`, `$2`…) y extra antes del
   prompt en `opencode`.
 - Tres formas de repetición: expresión cron de cinco campos, intervalo (`15m`, `2h`) y fecha única.
@@ -55,11 +57,11 @@ Ventana GTK3/WebKit2 4.1 ──HTTP──> daemon (systemd --user) ──> openc
 | Python 3 con PyGObject (`gi`) | Lanzador de la ventana |
 | GTK3 y WebKit2GTK 4.1 (se acepta 4.0) | Ventana de escritorio |
 | `notify-send` (libnotify) | Notificaciones de escritorio |
-| `opencode` en el `PATH` | Solo para los crons de IA |
+| `opencode` en el `PATH` | Crons de IA y listas de modelo/agente del formulario (sin él se escriben a mano) |
 
 `scripts/install.sh` comprueba Node, pnpm y `systemctl`; Python, GTK/WebKit, `notify-send` y
-`opencode` se usan en tiempo de ejecución. Si falta alguno, la instalación no falla, pero la ventana
-o las notificaciones no funcionarán (ver *Solución de problemas*).
+`opencode` se usan en tiempo de ejecución. Si falta alguno, la instalación no falla, pero la ventana,
+las notificaciones o los crons de IA no funcionarán (ver *Solución de problemas*).
 
 En Debian/Ubuntu, los paquetes de la ventana son `gir1.2-gtk-3.0` y `gir1.2-webkit2-4.1`, como
 indica el propio lanzador. En este sistema `WebKit2 4.1` es la variante GTK3 de WebKitGTK; usar GTK4
@@ -137,13 +139,14 @@ token verás `Falta el token de acceso. Abre LAICron desde el menú.`
 1. Pulsa **Crear cron**.
 2. Pon un **nombre** (obligatorio, máximo 100 caracteres).
 3. Elige el **ejecutor**:
-   - `opencode (IA)`: el **prompt** es obligatorio. **Modelo** y **Agente** son opcionales y se pasan
-     a `opencode` como `--model` y `--agent`.
+   - `opencode (IA)`: el **prompt** es obligatorio. **Modelo**, **variante** y **agente** son
+     opcionales y se eligen de las listas que LAICron lee de `opencode`.
    - `shell (comando)`: el **comando** es obligatorio y se ejecuta con `sh -lc`; el **directorio de
      trabajo** también es obligatorio (si no lo indicas al crear por API, se usa tu `$HOME`).
 4. **Argumentos** (opcional, en *Ejecución*): uno por línea. En `shell` se pasan como parámetros
    posicionales (`$1`, `$2`…; `$0` es `laicron`). En `opencode` se insertan antes del prompt.
-5. Elige la **repetición** y la **zona horaria** (nombre IANA, por ejemplo `Europe/Madrid`).
+5. Elige la **repetición** y la **zona horaria** (campo con sugerencias que incluye `UTC`, la zona
+   del equipo y las zonas IANA; debajo se muestra la hora actual y el desfase).
 6. Ajusta la ejecución: política de catch-up, límite, solapamiento, tiempo máximo (1–86400 segundos;
    600 por defecto) y modo de sesión.
 7. Configura la **notificación** si la quieres.
@@ -151,6 +154,43 @@ token verás `Falta el token de acceso. Abre LAICron desde el menú.`
 
 En el detalle de cada cron puedes **Pausar**/**Reanudar**, **Editar**, **Ejecutar ahora** y consultar
 el historial de ejecuciones y la conversación.
+
+#### Modelo, variante y agente
+
+Con el ejecutor `opencode (IA)`, el formulario pide el catálogo al daemon
+(`GET /api/opencode/options`) y muestra tres selectores:
+
+- **Modelo**: agrupado por proveedor, con el nombre legible y el id. La opción vacía
+  («Predeterminado del sistema») deja que `opencode` use su modelo por defecto.
+- **Variante**: las variantes del modelo elegido (por ejemplo, niveles de razonamiento). Solo se
+  habilita si ese modelo tiene alguna; «Predeterminada» no añade sufijo.
+- **Agente**: solo los agentes **primarios**. Los subagentes y los ocultos no aparecen porque no se
+  pueden ejecutar como agente principal del cron.
+
+Si eliges una variante, el cron guarda el modelo como `proveedor/modelo#variante`, el mismo formato
+que acepta `opencode run --model`; sin variante se guarda `proveedor/modelo`.
+
+Los selectores de modelo y agente incluyen **Personalizado…** para escribir un valor que no esté en
+la lista. Si `opencode` no está instalado o el catálogo falla, el formulario muestra un aviso y deja
+los campos de texto en lugar de las listas: puedes seguir creando el cron escribiendo el modelo y el
+agente a mano, o dejarlos vacíos. **Recargar opciones** vuelve a leerlo sin reiniciar el daemon.
+
+#### Zona horaria y constructor de cron
+
+La **zona horaria** se elige en un campo con sugerencias que incluye `UTC`, la zona del equipo y
+todas las zonas IANA. Al escribir se filtra la lista; debajo aparece la hora actual de la zona y su
+desfase respecto a UTC (`Ahora son las 09:00 (GMT+2)`). Se guarda el nombre IANA (`Europe/Madrid`,
+`UTC`…).
+
+Con la repetición **Cron**, la expresión se construye con cinco campos: **Minuto**, **Hora**, **Día
+del mes**, **Mes** y **Día de la semana**. La **Plantilla** rellena los cinco de golpe (por ejemplo,
+«De lunes a viernes a las 09:00») y la vista previa los describe en español. Minuto `0`, hora `9`,
+día del mes `*`, mes `*` y día de la semana `1-5` producen `0 9 * * 1-5` («de lunes a viernes a las
+09:00»).
+
+Para expresiones que los campos no cubren, activa **Modo avanzado** y edítala entera. Al desactivarlo,
+el formulario la reparte otra vez entre los cinco campos; si no tiene exactamente cinco, se queda en
+avanzado y muestra el error.
 
 ### Tipos de repetición
 
@@ -326,6 +366,21 @@ El error de la ejecución es `opencode no está instalado o no está en el PATH`
 `command -v opencode`. El servicio no usa el `PATH` de tu terminal, sino el de
 `~/.config/laicron/env`; añade allí el directorio que contiene `opencode`, ejecuta
 `systemctl --user restart laicron` o vuelve a instalar con `opencode` ya visible en tu `PATH`.
+
+### El formulario no muestra modelos ni agentes
+
+Al crear un cron de IA, en lugar de las listas de modelo y agente aparece un aviso. Significa que
+LAICron no pudo leer el catálogo de `opencode`; el aviso indica el motivo:
+
+- `opencode no está instalado o no está en el PATH`: instálalo o añade su directorio al `PATH` del
+  servicio (ver *`opencode` no encontrado*).
+- `opencode models agotó el tiempo de espera` o `opencode models falló (código N)`: el comando tardó
+  más de cinco segundos o terminó con error. Comprueba que `opencode models` funciona en tu terminal.
+
+Mientras el catálogo no esté disponible puedes crear el cron igualmente: escribe el modelo y el
+agente en los campos de texto. **Recargar opciones** reintenta la lectura sin reiniciar el daemon.
+Si solo falla la lectura de agentes, los modelos siguen apareciendo y la lista de agentes queda vacía;
+usa **Personalizado…** para escribir el agente a mano.
 
 ### Las notificaciones no llegan
 
