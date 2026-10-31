@@ -15,7 +15,7 @@ IA —o comandos arbitrarios— aunque la app esté cerrada, avisa al terminar y
 ## What Changes
 
 - Nuevo daemon de usuario que mantiene el reloj y ejecuta los crons con la app cerrada.
-- Nueva app de escritorio (ventana GTK4 + WebKit2) para crear, editar, pausar y revisar crons.
+- Nueva app de escritorio (ventana GTK3 + WebKit2GTK 4.1) para crear, editar, pausar y revisar crons.
 - Nuevo esquema SQLite con `jobs`, `runs` y `messages`.
 - Runner `opencode`: invoca `opencode run --format json` y parsea los eventos.
 - Runner `shell`: ejecuta un comando arbitrario y captura `stdout`, `stderr` y código de salida.
