@@ -95,6 +95,30 @@ export interface JobInput {
   notifyOn: NotifyOn;
 }
 
+/** A model exposed by `opencode models`, enriched with its variants. */
+export interface OpencodeModelOption {
+  id: string;
+  provider: string;
+  name: string;
+  variants: string[];
+}
+
+/** A primary agent exposed by `opencode debug agents`. */
+export interface OpencodeAgentOption {
+  id: string;
+  name: string;
+  description: string;
+  mode: string;
+}
+
+/** Catalog consumed by the job form to render model, variant and agent lists. */
+export interface OpencodeOptions {
+  available: boolean;
+  reason: string | null;
+  models: OpencodeModelOption[];
+  agents: OpencodeAgentOption[];
+}
+
 export interface JobListResponse {
   jobs: Job[];
 }

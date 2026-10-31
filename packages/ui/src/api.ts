@@ -5,6 +5,7 @@ import type {
   JobListResponse,
   JobResponse,
   MessagePage,
+  OpencodeOptions,
   Run,
   RunPage,
   RunResponse,
@@ -125,6 +126,11 @@ export class ApiClient {
       body: JSON.stringify(input),
     });
     return data.job;
+  }
+
+  async opencodeOptions(refresh = false): Promise<OpencodeOptions> {
+    const path = refresh ? "/api/opencode/options?refresh=1" : "/api/opencode/options";
+    return this.request<OpencodeOptions>(path);
   }
 
   async deleteJob(id: string): Promise<void> {
