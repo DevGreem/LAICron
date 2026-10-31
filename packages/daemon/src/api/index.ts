@@ -56,17 +56,25 @@ function serializeEvent(event: EngineEvent): string {
 async function readOpencodeOptions(
   service: OpencodeOptionsService,
   refresh: boolean,
+  cwd: string | undefined,
 ): Promise<OpencodeOptions> {
   try {
-    return await service.get(refresh);
+    return await service.get(refresh, cwd);
   } catch {
     return {
       available: false,
       reason: "No se pudo leer el catálogo de opencode",
       models: [],
       agents: [],
+      mcps: [],
     };
   }
+}
+
+/** Empty or missing `cwd` means "use the user's home directory". */
+function readCwdParam(url: URL): string | undefined {
+  const cwd = url.searchParams.get("cwd");
+  return cwd !== null && cwd.trim().length > 0 ? cwd : undefined;
 }
 
 function tokenMatches(provided: string, expected: string): boolean {
@@ -205,7 +213,7 @@ export function createApiServer(deps: ApiDeps): ApiServer {
     if (isOpencodeOptionsRoute && method === "GET") {
       const refreshParam = url.searchParams.get("refresh");
       const refresh = refreshParam === "1" || refreshParam === "true";
-      sendJson(res, 200, await readOpencodeOptions(opencodeOptions, refresh));
+      sendJson(res, 200, await readOpencodeOptions(opencodeOptions, refresh, readCwdParam(url)));
       return;
     }
 
