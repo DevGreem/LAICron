@@ -437,6 +437,43 @@ a:hover {
   margin-top: 14px;
 }
 
+.cron-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(120px, 1fr));
+  gap: 10px 12px;
+}
+
+.cron-preview {
+  margin: 0;
+  padding: 8px 10px;
+  border: 1px solid var(--border);
+  border-radius: 7px;
+  background: #0d0f14;
+  color: var(--muted);
+  font-size: 0.85rem;
+}
+
+.options-notice {
+  margin: 0;
+  padding: 8px 10px;
+  border: 1px solid rgba(251, 191, 36, 0.35);
+  border-radius: 7px;
+  background: rgba(251, 191, 36, 0.08);
+  color: var(--warning);
+  font-size: 0.82rem;
+}
+
+.timezone-info {
+  margin: 0;
+  color: var(--muted);
+  font-size: 0.78rem;
+}
+
+.options-actions {
+  display: flex;
+  justify-content: flex-end;
+}
+
 .field {
   display: flex;
   flex-direction: column;
@@ -717,5 +754,9 @@ textarea {
 
   .message {
     max-width: 95%;
+  }
+
+  .cron-grid {
+    grid-template-columns: repeat(auto-fit, minmax(90px, 1fr));
   }
 }
