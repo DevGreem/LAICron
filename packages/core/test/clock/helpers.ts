@@ -33,6 +33,12 @@ export function syntheticRun(job: Job, trigger: RunTrigger, missedCount = 0): Ru
     sessionId: null,
     missedCount,
     notificationDelivered: null,
+    inputTokens: null,
+    outputTokens: null,
+    reasoningTokens: null,
+    cacheReadTokens: null,
+    cacheWriteTokens: null,
+    costUsd: null,
   };
 }
 

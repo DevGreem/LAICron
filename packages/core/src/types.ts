@@ -29,6 +29,22 @@ export interface Run {
   startedAt: number | null; finishedAt: number | null; durationMs: number | null;
   exitCode: number | null; output: string | null; error: string | null;
   sessionId: string | null; missedCount: number; notificationDelivered: boolean | null;
+  // Token and cost consumption. `null` means "no data", which is not the same as zero.
+  inputTokens: number | null; outputTokens: number | null; reasoningTokens: number | null;
+  cacheReadTokens: number | null; cacheWriteTokens: number | null; costUsd: number | null;
+}
+
+/** Consumption reported by a single execution. */
+export interface RunUsage {
+  inputTokens: number; outputTokens: number; reasoningTokens: number;
+  cacheReadTokens: number; cacheWriteTokens: number; costUsd: number;
+}
+
+/** Aggregated consumption of every execution of a job. */
+export interface JobUsage {
+  runs: number; runsWithUsage: number;
+  inputTokens: number; outputTokens: number; reasoningTokens: number;
+  cacheReadTokens: number; cacheWriteTokens: number; costUsd: number;
 }
 
 export interface Message {
@@ -39,6 +55,8 @@ export interface Message {
 export interface RunResult {
   status: RunOutcomeStatus; exitCode: number | null; output: string;
   error: string | null; sessionId: string | null; durationMs: number;
+  /** Optional so runners that cannot read consumption stay valid. */
+  usage?: RunUsage | null;
 }
 
 export interface Runner {

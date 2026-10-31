@@ -1,13 +1,14 @@
 import { randomUUID } from "node:crypto";
 import type { DatabaseSync } from "node:sqlite";
 
-import type { Run, RunStatus, RunTrigger } from "../types.js";
+import type { JobUsage, Run, RunStatus, RunTrigger, RunUsage } from "../types.js";
 import { NotFoundError } from "./errors.js";
 import { asNumber, toRun } from "./mappers.js";
 import type { RunRepository } from "./repository-types.js";
 
 const RUN_COLUMNS = `id, job_id, "trigger", status, started_at, finished_at, duration_ms, exit_code,
-  output, error, session_id, missed_count, notification_delivered`;
+  output, error, session_id, missed_count, notification_delivered,
+  input_tokens, output_tokens, reasoning_tokens, cache_read_tokens, cache_write_tokens, cost_usd`;
 
 function inTransaction<T>(db: DatabaseSync, fn: () => T): T {
   db.exec("BEGIN IMMEDIATE");
@@ -46,7 +47,7 @@ export function createRunRepository(db: DatabaseSync): RunRepository {
       const id = randomUUID();
       db.prepare(
         `INSERT INTO runs (${RUN_COLUMNS})
-         VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+         VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
       ).run(
         id,
         input.jobId,
@@ -60,6 +61,12 @@ export function createRunRepository(db: DatabaseSync): RunRepository {
         null,
         null,
         input.missedCount ?? 0,
+        null,
+        null,
+        null,
+        null,
+        null,
+        null,
         null,
       );
       return requireRun(id);
@@ -88,14 +95,19 @@ export function createRunRepository(db: DatabaseSync): RunRepository {
         error: string | null;
         sessionId: string | null;
         notificationDelivered: boolean | null;
+        /** Omitted or `null` leaves every consumption column as `NULL`. */
+        usage?: RunUsage | null;
       },
     ): Run {
       const notificationDelivered =
         result.notificationDelivered === null ? null : result.notificationDelivered ? 1 : 0;
+      const usage = result.usage ?? null;
       const update = db
         .prepare(
           `UPDATE runs SET status = ?, finished_at = ?, duration_ms = ?, exit_code = ?, output = ?,
-             error = ?, session_id = ?, notification_delivered = ?
+             error = ?, session_id = ?, notification_delivered = ?,
+             input_tokens = ?, output_tokens = ?, reasoning_tokens = ?,
+             cache_read_tokens = ?, cache_write_tokens = ?, cost_usd = ?
            WHERE id = ?`,
         )
         .run(
@@ -107,6 +119,12 @@ export function createRunRepository(db: DatabaseSync): RunRepository {
           result.error,
           result.sessionId,
           notificationDelivered,
+          usage?.inputTokens ?? null,
+          usage?.outputTokens ?? null,
+          usage?.reasoningTokens ?? null,
+          usage?.cacheReadTokens ?? null,
+          usage?.cacheWriteTokens ?? null,
+          usage?.costUsd ?? null,
           id,
         );
       if (Number(update.changes) === 0) {
@@ -142,6 +160,35 @@ export function createRunRepository(db: DatabaseSync): RunRepository {
         )
         .get(jobId);
       return row === undefined ? null : toRun(row);
+    },
+
+    usageByJob(jobId: string): JobUsage {
+      const row = db
+        .prepare(
+          `SELECT COUNT(*) AS runs,
+                  SUM(CASE WHEN input_tokens IS NOT NULL OR output_tokens IS NOT NULL
+                             OR reasoning_tokens IS NOT NULL OR cache_read_tokens IS NOT NULL
+                             OR cache_write_tokens IS NOT NULL OR cost_usd IS NOT NULL
+                           THEN 1 ELSE 0 END) AS runs_with_usage,
+                  COALESCE(SUM(input_tokens), 0) AS input_tokens,
+                  COALESCE(SUM(output_tokens), 0) AS output_tokens,
+                  COALESCE(SUM(reasoning_tokens), 0) AS reasoning_tokens,
+                  COALESCE(SUM(cache_read_tokens), 0) AS cache_read_tokens,
+                  COALESCE(SUM(cache_write_tokens), 0) AS cache_write_tokens,
+                  COALESCE(SUM(cost_usd), 0) AS cost_usd
+           FROM runs WHERE job_id = ?`,
+        )
+        .get(jobId);
+      return {
+        runs: asNumber(row?.["runs"]),
+        runsWithUsage: asNumber(row?.["runs_with_usage"]),
+        inputTokens: asNumber(row?.["input_tokens"]),
+        outputTokens: asNumber(row?.["output_tokens"]),
+        reasoningTokens: asNumber(row?.["reasoning_tokens"]),
+        cacheReadTokens: asNumber(row?.["cache_read_tokens"]),
+        cacheWriteTokens: asNumber(row?.["cache_write_tokens"]),
+        costUsd: asNumber(row?.["cost_usd"]),
+      };
     },
 
     markRunningAsInterrupted(nowMs: number): number {
