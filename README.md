@@ -175,6 +175,54 @@ la lista. Si `opencode` no está instalado o el catálogo falla, el formulario m
 los campos de texto en lugar de las listas: puedes seguir creando el cron escribiendo el modelo y el
 agente a mano, o dejarlos vacíos. **Recargar opciones** vuelve a leerlo sin reiniciar el daemon.
 
+#### MCPs
+
+Con el ejecutor `opencode (IA)` el formulario muestra la sección **MCPs**, con una fila por servidor y
+cuatro columnas: **MCP**, **Por defecto**, **Estado** y **Efectivo**.
+
+| Columna | Qué muestra |
+| --- | --- |
+| **MCP** | Nombre del servidor MCP |
+| **Por defecto** | Si `opencode` lo tiene encendido o apagado en el catálogo |
+| **Estado** | Lo que fija este cron: **Heredado**, **Encendido** o **Apagado** |
+| **Efectivo** | El valor del catálogo cuando está heredado; si está fijado, un 📌 |
+
+- **Heredado** (por defecto): el cron usa lo que tenga `opencode` en ese momento. Si cambias tu
+  configuración, el cron cambia con ella.
+- **Encendido** / **Apagado**: fija el valor para este cron y **no cambia** aunque modifiques la
+  configuración de `opencode`. El 📌 de la columna **Efectivo** identifica los MCPs fijados.
+- También puedes encender un MCP que por defecto esté apagado: se activa solo para ese cron.
+
+El catálogo se pide con el **directorio de trabajo** del cron (`opencode mcp list`), así que incluye
+los MCPs definidos en el proyecto (`.opencode/opencode.jsonc`). Si dejas el directorio vacío, se usa el
+del daemon para listar y el cron se ejecuta en tu `$HOME`. Al cambiarlo, la lista se recarga sola;
+**Recargar opciones** la vuelve a leer sin reiniciar el daemon. Si la lectura falla, el formulario
+muestra un aviso y conserva los estados ya guardados.
+
+Al guardar, el cron solo almacena los MCPs **fijados**; los heredados no se guardan. En cada
+ejecución, LAICron pasa esos valores a `opencode` con la variable `OPENCODE_CONFIG_CONTENT`
+(`{"mcp":{"servers":{"<nombre>":{"disabled":true|false}}}}`), sin tocar
+`~/.config/opencode/opencode.jsonc` ni la configuración del proyecto. Los MCPs que ya no existan se
+ignoran y el ejecutor `shell` no usa esta sección.
+
+Para comprobar el mecanismo a mano:
+
+```sh
+OPENCODE_CONFIG_CONTENT='{"mcp":{"servers":{"xerj":{"disabled":true}}}}' \
+  opencode run --format json "Di solo: ok"
+```
+
+Y para ver la configuración efectiva que aplicaría `opencode`:
+
+```sh
+OPENCODE_CONFIG_CONTENT='{"mcp":{"servers":{"xerj":{"disabled":true}}}}' \
+  opencode debug config
+```
+
+Si `opencode mcp list` falla en el momento de ejecutar, el cron sigue con la configuración heredada,
+no se marca como fallido y el journal deja el aviso
+`[laicron] no se pudo leer la lista de MCPs; se usa la configuración heredada`.
+
 #### Zona horaria y constructor de cron
 
 La **zona horaria** se elige en un campo con sugerencias que incluye `UTC`, la zona del equipo y
@@ -381,6 +429,20 @@ Mientras el catálogo no esté disponible puedes crear el cron igualmente: escri
 agente en los campos de texto. **Recargar opciones** reintenta la lectura sin reiniciar el daemon.
 Si solo falla la lectura de agentes, los modelos siguen apareciendo y la lista de agentes queda vacía;
 usa **Personalizado…** para escribir el agente a mano.
+
+### La sección MCPs aparece vacía o con un aviso
+
+El aviso aparece cuando LAICron no pudo leer `opencode mcp list` en el directorio de trabajo del cron
+o cuando el comando no devuelve ningún servidor. Comprueba que funciona en ese directorio:
+
+```sh
+cd /ruta/del/cron && opencode mcp list
+```
+
+El formulario conserva los estados ya guardados y **Recargar opciones** reintenta la lectura. Si el
+listado falla al ejecutar el cron, la ejecución continúa con la configuración heredada de `opencode`,
+no se marca como fallida y el journal muestra `[laicron] no se pudo leer la lista de MCPs; se usa la
+configuración heredada`.
 
 ### Las notificaciones no llegan
 

@@ -3,6 +3,10 @@ import { readFile } from "node:fs/promises";
 import { homedir } from "node:os";
 import { join } from "node:path";
 
+import { createMcpLister, type McpLister, type OpencodeMcpOption } from "@laicron/core/runners";
+
+export type { OpencodeMcpOption };
+
 /** A model exposed by `opencode models`, enriched from the local cache. */
 export interface OpencodeModelOption {
   id: string;
@@ -19,13 +23,17 @@ export interface OpencodeAgentOption {
   mode: string;
 }
 
-/** Catalog consumed by the job form to render model, variant and agent lists. */
+/** Catalog consumed by the job form to render model, variant, agent and MCP lists. */
 export interface OpencodeOptions {
   available: boolean;
   reason: string | null;
   models: OpencodeModelOption[];
   agents: OpencodeAgentOption[];
+  mcps: OpencodeMcpOption[];
 }
+
+/** Catalog fields backed by the global (cwd-independent) opencode commands. */
+type OpencodeCatalog = Omit<OpencodeOptions, "mcps">;
 
 /** Result of running an external command. */
 export interface ExecResult {
@@ -40,12 +48,13 @@ export type ExecFn = (cmd: string, args: string[]) => Promise<ExecResult>;
 export interface OpencodeOptionsDeps {
   exec?: ExecFn;
   modelsCachePath?: string;
+  mcpLister?: McpLister;
   now?: () => number;
   ttlMs?: number;
 }
 
 export interface OpencodeOptionsService {
-  get(refresh?: boolean): Promise<OpencodeOptions>;
+  get(refresh?: boolean, cwd?: string): Promise<OpencodeOptions>;
 }
 
 const DEFAULT_TTL_MS = 60_000;
@@ -281,12 +290,16 @@ function parseAgents(stdout: string): OpencodeAgentOption[] {
 export function createOpencodeOptions(deps: OpencodeOptionsDeps = {}): OpencodeOptionsService {
   const exec = deps.exec ?? defaultExec;
   const modelsCachePath = deps.modelsCachePath ?? defaultCachePath();
+  const mcpLister = deps.mcpLister ?? createMcpLister();
   const now = deps.now ?? Date.now;
   const ttlMs = deps.ttlMs ?? DEFAULT_TTL_MS;
 
-  let cached: { at: number; value: OpencodeOptions } | null = null;
+  // Models and agents do not depend on the working directory, so they share a
+  // single entry; MCP servers do, so each cwd keeps its own cache slot.
+  let catalogCache: { at: number; value: OpencodeCatalog } | null = null;
+  const mcpCache = new Map<string, { at: number; value: OpencodeMcpOption[] }>();
 
-  async function load(): Promise<OpencodeOptions> {
+  async function loadCatalog(): Promise<OpencodeCatalog> {
     const modelsResult = await runWithTimeout(exec, "opencode", ["models"]);
     if (modelsResult.code !== 0) {
       return {
@@ -307,21 +320,61 @@ export function createOpencodeOptions(deps: OpencodeOptionsDeps = {}): OpencodeO
     return { available: true, reason: null, models, agents };
   }
 
-  async function get(refresh = false): Promise<OpencodeOptions> {
-    const timestamp = now();
-    if (!refresh && cached !== null && timestamp - cached.at < ttlMs) {
-      return cached.value;
+  async function readCatalog(refresh: boolean, timestamp: number): Promise<OpencodeCatalog> {
+    if (!refresh && catalogCache !== null && timestamp - catalogCache.at < ttlMs) {
+      return catalogCache.value;
     }
 
-    let value: OpencodeOptions;
+    let value: OpencodeCatalog;
     try {
-      value = await load();
+      value = await loadCatalog();
     } catch {
       value = { available: false, reason: GENERIC_REASON, models: [], agents: [] };
     }
 
-    cached = { at: timestamp, value };
+    catalogCache = { at: timestamp, value };
     return value;
+  }
+
+  async function readMcps(
+    cwd: string,
+    refresh: boolean,
+    timestamp: number,
+  ): Promise<OpencodeMcpOption[]> {
+    const cached = mcpCache.get(cwd);
+    if (!refresh && cached !== undefined && timestamp - cached.at < ttlMs) {
+      return cached.value;
+    }
+
+    let value: OpencodeMcpOption[];
+    try {
+      value = await mcpLister.list(cwd, refresh);
+    } catch {
+      // A broken MCP listing only empties the MCP list; models and agents stay.
+      return [];
+    }
+
+    mcpCache.set(cwd, { at: timestamp, value });
+    return value;
+  }
+
+  async function get(refresh = false, cwd?: string): Promise<OpencodeOptions> {
+    const timestamp = now();
+    // Jobs default to the home directory, so an omitted cwd must match them.
+    const directory = cwd ?? homedir();
+
+    // `refresh` invalidates both caches: the global catalog and every cwd slot.
+    if (refresh) {
+      catalogCache = null;
+      mcpCache.clear();
+    }
+
+    const [catalog, mcps] = await Promise.all([
+      readCatalog(refresh, timestamp),
+      readMcps(directory, refresh, timestamp),
+    ]);
+
+    return { ...catalog, mcps };
   }
 
   return { get };

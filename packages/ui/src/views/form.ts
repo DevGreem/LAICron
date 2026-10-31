@@ -13,6 +13,8 @@ import {
   selectControl,
   setFieldError,
 } from "../dom.js";
+import { buildOverrides, effectiveState, mergeMcpRows } from "../mcp-state.js";
+import type { McpChoice, McpRow } from "../mcp-state.js";
 import { composeModelValue, splitModelValue } from "../model-value.js";
 import { listTimezones, timezoneInfo } from "../timezones.js";
 import type {
@@ -146,12 +148,34 @@ function optionLabel(id: string, name: string): string {
   return name.length > 0 && name !== id ? `${name} — ${id}` : id;
 }
 
+function mcpDefaultLabel(enabled: boolean | null): string {
+  if (enabled === null) {
+    return "—";
+  }
+  return enabled ? "Encendido" : "Apagado";
+}
+
+function mcpChoiceLabel(state: McpChoice): string {
+  if (state === "on") {
+    return "Encendido";
+  }
+  if (state === "off") {
+    return "Apagado";
+  }
+  return "—";
+}
+
+function parseMcpChoice(value: string): McpChoice {
+  return value === "on" || value === "off" ? value : "inherit";
+}
+
 /** Create/edit form for every user-editable job field. */
 export function createFormView(ctx: AppContext, jobId: string | null): View {
   const element = h("section", { class: "view" });
   const content = h("div", { class: "view-content" });
   element.append(content);
   let disposed = false;
+  let cwdReloadTimer: ReturnType<typeof setTimeout> | null = null;
 
   function renderLoadError(error: unknown): void {
     content.replaceChildren(
@@ -269,6 +293,52 @@ export function createFormView(ctx: AppContext, jobId: string | null): View {
     });
     agentCustomInput.value = job?.agent ?? "";
 
+    const mcpLegend = h("p", {
+      class: "field-hint",
+      attrs: { id: "job-mcps-legend" },
+      text: "Heredado sigue tu configuración de opencode; Encendido/Apagado fija ese valor para este cron y no cambia aunque modifiques la configuración.",
+    });
+
+    const mcpNotice = h("p", {
+      class: "options-notice",
+      attrs: { id: "job-mcps-notice", hidden: true, role: "status" },
+    });
+
+    const mcpTableBody = h("tbody");
+
+    const mcpTable = h(
+      "table",
+      { class: "table mcp-table" },
+      h(
+        "thead",
+        {},
+        h(
+          "tr",
+          {},
+          h("th", { text: "MCP" }),
+          h("th", { text: "Por defecto" }),
+          h("th", { text: "Estado" }),
+          h("th", { text: "Efectivo" }),
+        ),
+      ),
+      mcpTableBody,
+    );
+
+    const mcpsContainer = h(
+      "div",
+      { class: "mcp-section", attrs: { id: "job-mcps" } },
+      mcpLegend,
+      mcpNotice,
+      h("div", { class: "table-wrap" }, mcpTable),
+    );
+
+    const mcpsSection = h(
+      "section",
+      { class: "form-section", attrs: { id: "job-mcps-section" } },
+      h("h2", { class: "form-section-title", text: "MCPs" }),
+      mcpsContainer,
+    );
+
     const optionsNotice = h("p", {
       class: "options-notice field-full",
       attrs: { id: "job-options-notice", hidden: true, role: "status" },
@@ -300,6 +370,12 @@ export function createFormView(ctx: AppContext, jobId: string | null): View {
       },
     });
     cwdInput.value = job?.cwd ?? "";
+
+    // The hint depends on the runner, so it is filled by updateRunnerFields.
+    const cwdHint = h("p", { class: "field-hint" });
+    const cwdField = field("Directorio de trabajo", cwdInput);
+    cwdField.appendChild(cwdHint);
+    cwdField.appendChild(errorSlot("cwd"));
 
     const argsInput = h("textarea", {
       attrs: { id: "job-args", name: "args", rows: "3" },
@@ -595,10 +671,6 @@ export function createFormView(ctx: AppContext, jobId: string | null): View {
         full: true,
         hint: "Se ejecuta con sh -lc.",
       }),
-      formField("Directorio de trabajo", cwdInput, {
-        field: "cwd",
-        hint: "Ruta absoluta donde se ejecuta el comando.",
-      }),
     );
 
     const cronGroup = h(
@@ -669,6 +741,7 @@ export function createFormView(ctx: AppContext, jobId: string | null): View {
           formField("Nombre", nameInput, { field: "name", full: true }),
           checkboxField("Activo", enabledInput, { field: "enabled" }),
           formField("Ejecutor", runnerSelect, { field: "runner" }),
+          cwdField,
         ),
       ),
       h(
@@ -678,6 +751,7 @@ export function createFormView(ctx: AppContext, jobId: string | null): View {
         opencodeFields,
         shellFields,
       ),
+      mcpsSection,
       h(
         "section",
         { class: "form-section" },
@@ -759,6 +833,8 @@ export function createFormView(ctx: AppContext, jobId: string | null): View {
 
     let catalog: OpencodeOptions | null = null;
     let catalogLoading = false;
+    let mcpRows: McpRow[] = mergeMcpRows([], job?.mcpOverrides ?? {});
+    let optionsRequestId = 0;
 
     function catalogAvailable(): boolean {
       return catalog !== null && catalog.available;
@@ -770,6 +846,114 @@ export function createFormView(ctx: AppContext, jobId: string | null): View {
 
     function findAgent(id: string): OpencodeAgentOption | undefined {
       return catalog?.agents.find((agent) => agent.id === id);
+    }
+
+    function mcpRowElement(row: McpRow): HTMLTableRowElement {
+      const select = h(
+        "select",
+        { class: "mcp-state", attrs: { "aria-label": `Estado de ${row.name}` } },
+        h("option", { text: "Heredado", attrs: { value: "inherit" } }),
+        h("option", { text: "Encendido", attrs: { value: "on" } }),
+        h("option", { text: "Apagado", attrs: { value: "off" } }),
+      );
+      select.value = row.state;
+
+      const effective = h("span", {
+        class: "mcp-effective",
+        text: mcpChoiceLabel(effectiveState(row.state, row.enabled)),
+      });
+      effective.hidden = row.state !== "inherit";
+
+      const pin = h("span", {
+        class: "mcp-pin",
+        text: "📌",
+        attrs: { title: "Fijado para este cron", "aria-label": "Fijado para este cron" },
+      });
+      pin.hidden = row.state === "inherit";
+
+      return h(
+        "tr",
+        { dataset: { mcp: row.name } },
+        h("td", { class: "mcp-name", text: row.name }),
+        h("td", { class: "mcp-default", text: mcpDefaultLabel(row.enabled) }),
+        h("td", {}, select),
+        h("td", { class: "mcp-effective-cell" }, effective, pin),
+      );
+    }
+
+    function renderMcpRows(rows: McpRow[]): void {
+      mcpRows = rows;
+      mcpTableBody.replaceChildren(...rows.map(mcpRowElement));
+    }
+
+    /**
+     * Reads the selects so a choice survives a catalog reload even if the
+     * change event has not reached the row model yet.
+     */
+    function readMcpRows(): McpRow[] {
+      const states = new Map<string, McpChoice>();
+      mcpTableBody.querySelectorAll<HTMLTableRowElement>("tr[data-mcp]").forEach((rowElement) => {
+        const name = rowElement.dataset["mcp"];
+        if (name === undefined) {
+          return;
+        }
+        const select = rowElement.querySelector<HTMLSelectElement>("select.mcp-state");
+        if (select !== null) {
+          states.set(name, parseMcpChoice(select.value));
+        }
+      });
+      return mcpRows.map((row) => {
+        const state = states.get(row.name);
+        return state === undefined ? row : { ...row, state };
+      });
+    }
+
+    function updateMcpRowVisuals(rowElement: HTMLTableRowElement, row: McpRow): void {
+      const effective = rowElement.querySelector<HTMLElement>(".mcp-effective");
+      if (effective !== null) {
+        effective.textContent = mcpChoiceLabel(effectiveState(row.state, row.enabled));
+        effective.hidden = row.state !== "inherit";
+      }
+      const pin = rowElement.querySelector<HTMLElement>(".mcp-pin");
+      if (pin !== null) {
+        pin.hidden = row.state === "inherit";
+      }
+    }
+
+    function handleMcpStateChange(select: HTMLSelectElement): void {
+      const rowElement = select.closest("tr[data-mcp]");
+      if (!(rowElement instanceof HTMLTableRowElement)) {
+        return;
+      }
+      const name = rowElement.dataset["mcp"];
+      if (name === undefined) {
+        return;
+      }
+      const state = parseMcpChoice(select.value);
+      mcpRows = mcpRows.map((row) => (row.name === name ? { ...row, state } : row));
+      const row = mcpRows.find((item) => item.name === name);
+      if (row !== undefined) {
+        updateMcpRowVisuals(rowElement, row);
+      }
+    }
+
+    /**
+     * Rebuilds the table from the new catalog while keeping every pinned
+     * choice. Saved servers missing from the catalog stay as unknown rows so
+     * the user can still unpin them.
+     */
+    function applyMcpCatalog(options: OpencodeOptions): void {
+      const mcps = options.mcps ?? [];
+      const overrides = buildOverrides(readMcpRows());
+      renderMcpRows(mergeMcpRows(mcps, overrides));
+
+      if (mcps.length === 0) {
+        mcpNotice.textContent = options.reason ?? "No se pudo leer la lista de MCPs de opencode.";
+        mcpNotice.hidden = false;
+        return;
+      }
+      mcpNotice.textContent = "";
+      mcpNotice.hidden = true;
     }
 
     function populateModelSelect(options: OpencodeOptions): void {
@@ -947,25 +1131,26 @@ export function createFormView(ctx: AppContext, jobId: string | null): View {
         optionsNotice.hidden = false;
       }
 
+      applyMcpCatalog(options);
       updateCatalogVisibility();
       syncCatalogControls();
     }
 
     async function loadOptions(refresh: boolean): Promise<void> {
-      if (catalogLoading) {
-        return;
-      }
-
+      // A cwd change may start a new request while the previous one is still
+      // in flight; the latest request wins and older responses are discarded.
+      const requestId = ++optionsRequestId;
       catalogLoading = true;
       syncCatalogControls();
       try {
-        const options = await ctx.api.opencodeOptions(refresh);
-        if (disposed) {
+        const cwd = cwdInput.value.trim();
+        const options = await ctx.api.opencodeOptions(refresh, cwd.length > 0 ? cwd : undefined);
+        if (disposed || requestId !== optionsRequestId) {
           return;
         }
         applyCatalog(options);
       } catch (error) {
-        if (disposed) {
+        if (disposed || requestId !== optionsRequestId) {
           return;
         }
         applyCatalog({
@@ -973,23 +1158,41 @@ export function createFormView(ctx: AppContext, jobId: string | null): View {
           reason: messageFromError(error),
           models: [],
           agents: [],
+          mcps: [],
         });
       } finally {
-        catalogLoading = false;
-        if (!disposed) {
+        if (!disposed && requestId === optionsRequestId) {
+          catalogLoading = false;
           syncCatalogControls();
           updateCatalogVisibility();
         }
       }
     }
 
+    function scheduleCwdReload(): void {
+      if (cwdReloadTimer !== null) {
+        clearTimeout(cwdReloadTimer);
+      }
+      cwdReloadTimer = setTimeout(() => {
+        cwdReloadTimer = null;
+        if (!disposed) {
+          void loadOptions(false);
+        }
+      }, 400);
+    }
+
     function updateRunnerFields(): void {
       const runner: RunnerKind = runnerSelect.value === "shell" ? "shell" : "opencode";
       opencodeFields.hidden = runner !== "opencode";
       shellFields.hidden = runner !== "shell";
+      mcpsSection.hidden = runner !== "opencode";
       promptInput.required = runner === "opencode";
       commandInput.required = runner === "shell";
       cwdInput.required = runner === "shell";
+      cwdHint.textContent =
+        runner === "shell"
+          ? "Ruta absoluta donde se ejecuta el comando."
+          : "Dónde se ejecuta opencode y de dónde salen los MCPs de proyecto. Vacío = tu home.";
     }
 
     function updateScheduleFields(): void {
@@ -1285,6 +1488,7 @@ export function createFormView(ctx: AppContext, jobId: string | null): View {
         timeoutSec,
         notify: notifyInput.checked,
         notifyOn,
+        mcpOverrides: buildOverrides(readMcpRows()),
       };
       if (cwd.length > 0) {
         input.cwd = cwd;
@@ -1359,6 +1563,8 @@ export function createFormView(ctx: AppContext, jobId: string | null): View {
       } else if (target instanceof HTMLInputElement && cronFieldInputs.includes(target)) {
         syncCronPreset();
         updateCronPreview();
+      } else if (target === cwdInput) {
+        scheduleCwdReload();
       }
       hideGeneralError();
     });
@@ -1392,6 +1598,11 @@ export function createFormView(ctx: AppContext, jobId: string | null): View {
       } else if (target === timezoneInput) {
         updateTimezoneInfo();
         setFieldError(form, "timezone", null);
+      } else if (target === cwdInput) {
+        scheduleCwdReload();
+        setFieldError(form, "cwd", null);
+      } else if (target instanceof HTMLSelectElement && target.classList.contains("mcp-state")) {
+        handleMcpStateChange(target);
       } else {
         const fieldName = target.getAttribute("name");
         if (fieldName !== null) {
@@ -1401,6 +1612,7 @@ export function createFormView(ctx: AppContext, jobId: string | null): View {
       hideGeneralError();
     });
 
+    renderMcpRows(mcpRows);
     updateRunnerFields();
     updateScheduleFields();
     updateCatchUpLimit();
@@ -1426,6 +1638,10 @@ export function createFormView(ctx: AppContext, jobId: string | null): View {
     element,
     dispose: () => {
       disposed = true;
+      if (cwdReloadTimer !== null) {
+        clearTimeout(cwdReloadTimer);
+        cwdReloadTimer = null;
+      }
     },
   };
 }

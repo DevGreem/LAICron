@@ -23,6 +23,7 @@ export function makeJob(overrides: Partial<Job> = {}): Job {
     timeoutSec: 10,
     notify: false,
     notifyOn: "failure",
+    mcpOverrides: {},
     nextRunAt: null,
     lastRunAt: null,
     lastStatus: null,

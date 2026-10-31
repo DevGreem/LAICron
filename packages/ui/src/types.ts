@@ -2,6 +2,8 @@
 
 export type RunnerKind = "opencode" | "shell";
 export type ScheduleKind = "cron" | "interval" | "once";
+/** Per-cron MCP override. `inherit` is never stored: an absent key means inherited. */
+export type McpState = "on" | "off";
 export type CatchUpPolicy = "none" | "once" | "all";
 export type OverlapPolicy = "skip" | "queue" | "kill";
 export type SessionMode = "independent" | "continuous";
@@ -32,6 +34,7 @@ export interface Job {
   timeoutSec: number;
   notify: boolean;
   notifyOn: NotifyOn;
+  mcpOverrides: Record<string, McpState>;
   nextRunAt: number | null;
   lastRunAt: number | null;
   lastStatus: RunStatus | null;
@@ -93,6 +96,7 @@ export interface JobInput {
   timeoutSec: number;
   notify: boolean;
   notifyOn: NotifyOn;
+  mcpOverrides?: Record<string, McpState>;
 }
 
 /** A model exposed by `opencode models`, enriched with its variants. */
@@ -111,12 +115,20 @@ export interface OpencodeAgentOption {
   mode: string;
 }
 
-/** Catalog consumed by the job form to render model, variant and agent lists. */
+/** An MCP server exposed by `opencode mcp list` for a given working directory. */
+export interface OpencodeMcpOption {
+  name: string;
+  enabled: boolean;
+  status: string;
+}
+
+/** Catalog consumed by the job form to render model, variant, agent and MCP lists. */
 export interface OpencodeOptions {
   available: boolean;
   reason: string | null;
   models: OpencodeModelOption[];
   agents: OpencodeAgentOption[];
+  mcps: OpencodeMcpOption[];
 }
 
 export interface JobListResponse {

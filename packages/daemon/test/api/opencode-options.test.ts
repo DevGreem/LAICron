@@ -22,10 +22,20 @@ const CATALOG: OpencodeOptions = {
     },
   ],
   agents: [{ id: "build", name: "Build", description: "The default agent", mode: "all" }],
+  mcps: [
+    { name: "github", enabled: true, status: "connected" },
+    { name: "xerj", enabled: false, status: "disabled" },
+    { name: "roto", enabled: true, status: "failed: boom" },
+  ],
 };
 
+interface OptionsCall {
+  refresh: boolean;
+  cwd: string | undefined;
+}
+
 class FakeOpencodeOptions implements OpencodeOptionsService {
-  readonly calls: boolean[] = [];
+  readonly calls: OptionsCall[] = [];
 
   private readonly value: OpencodeOptions;
 
@@ -33,8 +43,8 @@ class FakeOpencodeOptions implements OpencodeOptionsService {
     this.value = value;
   }
 
-  async get(refresh = false): Promise<OpencodeOptions> {
-    this.calls.push(refresh);
+  async get(refresh = false, cwd?: string): Promise<OpencodeOptions> {
+    this.calls.push({ refresh, cwd });
     return this.value;
   }
 }
@@ -108,8 +118,25 @@ describe("GET /api/opencode/options", () => {
 
     const response = await getOptions(server);
     expect(response.status).toBe(200);
-    expect(await response.json()).toEqual(CATALOG);
-    expect(options.calls).toEqual([false]);
+    const body = (await response.json()) as OpencodeOptions;
+    expect(body).toEqual(CATALOG);
+    expect(body.mcps).toHaveLength(3);
+    expect(options.calls).toEqual([{ refresh: false, cwd: undefined }]);
+  });
+
+  it("passes cwd and refresh to the service", async () => {
+    const options = new FakeOpencodeOptions(CATALOG);
+    const server = await startApi(options);
+
+    expect((await getOptions(server, "?cwd=/tmp/x")).status).toBe(200);
+    expect((await getOptions(server, "?refresh=1&cwd=/tmp/y")).status).toBe(200);
+    expect((await getOptions(server, "?cwd=")).status).toBe(200);
+
+    expect(options.calls).toEqual([
+      { refresh: false, cwd: "/tmp/x" },
+      { refresh: true, cwd: "/tmp/y" },
+      { refresh: false, cwd: undefined },
+    ]);
   });
 
   it("refreshes the catalog when refresh=1", async () => {
@@ -120,7 +147,11 @@ describe("GET /api/opencode/options", () => {
     expect((await getOptions(server, "?refresh=true")).status).toBe(200);
     expect((await getOptions(server, "?refresh=0")).status).toBe(200);
 
-    expect(options.calls).toEqual([true, true, false]);
+    expect(options.calls).toEqual([
+      { refresh: true, cwd: undefined },
+      { refresh: true, cwd: undefined },
+      { refresh: false, cwd: undefined },
+    ]);
   });
 
   it("returns 200 with an unavailable catalog", async () => {
@@ -129,6 +160,7 @@ describe("GET /api/opencode/options", () => {
       reason: "opencode no está instalado o no está en el PATH",
       models: [],
       agents: [],
+      mcps: [],
     };
     const server = await startApi(new FakeOpencodeOptions(unavailable));
 

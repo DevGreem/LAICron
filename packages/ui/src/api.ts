@@ -128,9 +128,18 @@ export class ApiClient {
     return data.job;
   }
 
-  async opencodeOptions(refresh = false): Promise<OpencodeOptions> {
-    const path = refresh ? "/api/opencode/options?refresh=1" : "/api/opencode/options";
-    return this.request<OpencodeOptions>(path);
+  async opencodeOptions(refresh = false, cwd?: string): Promise<OpencodeOptions> {
+    const query: string[] = [];
+    if (refresh) {
+      query.push("refresh=1");
+    }
+    if (cwd !== undefined && cwd.length > 0) {
+      query.push(`cwd=${encodeURIComponent(cwd)}`);
+    }
+    const suffix = query.length > 0 ? `?${query.join("&")}` : "";
+    const data = await this.request<OpencodeOptions>(`/api/opencode/options${suffix}`);
+    // Older daemons do not return `mcps`; the form expects an array.
+    return { ...data, mcps: data.mcps ?? [] };
   }
 
   async deleteJob(id: string): Promise<void> {

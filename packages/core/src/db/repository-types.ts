@@ -1,6 +1,7 @@
 import type {
   CatchUpPolicy,
   Job,
+  McpState,
   Message,
   NotifyOn,
   OverlapPolicy,
@@ -34,6 +35,7 @@ export interface CreateJobInput {
   timeoutSec?: number;
   notify?: boolean;
   notifyOn?: NotifyOn;
+  mcpOverrides?: Record<string, McpState>;
 }
 
 /** Partial patch for an existing job; the merged result is validated. */
