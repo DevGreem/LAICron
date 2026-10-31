@@ -1,0 +1,14 @@
+[Unit]
+Description=LAICron scheduler daemon
+After=network.target
+
+[Service]
+Type=simple
+ExecStart=@NODE_BIN@ @REPO_ROOT@/packages/daemon/dist/main.js
+WorkingDirectory=@REPO_ROOT@
+EnvironmentFile=-%h/.config/laicron/env
+Restart=always
+RestartSec=3
+
+[Install]
+WantedBy=default.target
