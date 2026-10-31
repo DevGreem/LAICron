@@ -1,0 +1,48 @@
+{
+  "name": "@laicron/core",
+  "version": "0.1.0",
+  "private": true,
+  "type": "module",
+  "main": "./dist/index.js",
+  "types": "./dist/index.d.ts",
+  "exports": {
+    ".": {
+      "types": "./dist/index.d.ts",
+      "default": "./dist/index.js"
+    },
+    "./db": {
+      "types": "./dist/db/index.d.ts",
+      "default": "./dist/db/index.js"
+    },
+    "./schedule": {
+      "types": "./dist/schedule/index.d.ts",
+      "default": "./dist/schedule/index.js"
+    },
+    "./runners": {
+      "types": "./dist/runners/index.d.ts",
+      "default": "./dist/runners/index.js"
+    },
+    "./engine": {
+      "types": "./dist/engine/index.d.ts",
+      "default": "./dist/engine/index.js"
+    },
+    "./clock": {
+      "types": "./dist/clock/index.d.ts",
+      "default": "./dist/clock/index.js"
+    },
+    "./notifications": {
+      "types": "./dist/notifications/index.d.ts",
+      "default": "./dist/notifications/index.js"
+    }
+  },
+  "files": [
+    "dist"
+  ],
+  "scripts": {
+    "build": "tsc -p tsconfig.json",
+    "test": "vitest run"
+  },
+  "dependencies": {
+    "cron-parser": "^5"
+  }
+}

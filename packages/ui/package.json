@@ -1,0 +1,14 @@
+{
+  "name": "@laicron/ui",
+  "version": "0.1.0",
+  "private": true,
+  "type": "module",
+  "main": "./dist/app.js",
+  "files": [
+    "dist"
+  ],
+  "scripts": {
+    "build": "tsc -p tsconfig.json && node copy-static.mjs",
+    "test": "vitest run"
+  }
+}

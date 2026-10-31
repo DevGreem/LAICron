@@ -1,0 +1,7 @@
+node_modules/
+**/dist/
+.opencode/
+openspec/
+README.md
+packages/core/src/types.ts
+pnpm-lock.yaml
