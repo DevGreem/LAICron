@@ -29,7 +29,8 @@ Ventana GTK3/WebKit2 4.1 ──HTTP──> daemon (systemd --user) ──> openc
 
 ## Funciones
 
-- Crons con **prompt de IA** (`opencode run --format json`) o **comando de shell** (`sh -lc`).
+- Crons con **prompt de IA** (`opencode run --standalone --format json`) o **comando de shell**
+  (`sh -lc`).
 - Formulario con listas de **modelos, variantes y agentes** leídas de `opencode`, selector de zona
   horaria con la hora actual y constructor de cron por campos con vista previa.
 - **Argumentos por cron**: posicionales en los comandos de shell (`$1`, `$2`…) y extra antes del
@@ -42,6 +43,8 @@ Ventana GTK3/WebKit2 4.1 ──HTTP──> daemon (systemd --user) ──> openc
 - Notificaciones de escritorio con `notify-send`, opcionales por cron y filtrables (siempre, solo
   fallos o solo éxito).
 - Historial de ejecuciones por cron y conversación (prompt y respuesta) en los crons de IA.
+- **Consumo por ejecución**: coste en USD y tokens de entrada, salida, razonamiento y caché, con
+  totales por cron.
 - Sesión continua opcional: cada ejecución continúa la conversación anterior de `opencode`.
 - Pausar, reanudar y "ejecutar ahora" desde la ventana.
 - Cola de ejecuciones con un máximo de dos crons de IA concurrentes.
@@ -184,14 +187,15 @@ cuatro columnas: **MCP**, **Por defecto**, **Estado** y **Efectivo**.
 | --- | --- |
 | **MCP** | Nombre del servidor MCP |
 | **Por defecto** | Si `opencode` lo tiene encendido o apagado en el catálogo |
-| **Estado** | Lo que fija este cron: **Heredado**, **Encendido** o **Apagado** |
+| **Estado** | Lo que marca este cron: **Heredado**, **Encendido** o **Apagado** |
 | **Efectivo** | El valor del catálogo cuando está heredado; si está fijado, un 📌 |
 
 - **Heredado** (por defecto): el cron usa lo que tenga `opencode` en ese momento. Si cambias tu
   configuración, el cron cambia con ella.
-- **Encendido** / **Apagado**: fija el valor para este cron y **no cambia** aunque modifiques la
+- **Encendido** / **Apagado**: marca el valor para este cron y **no cambia** aunque modifiques la
   configuración de `opencode`. El 📌 de la columna **Efectivo** identifica los MCPs fijados.
-- También puedes encender un MCP que por defecto esté apagado: se activa solo para ese cron.
+- También puedes marcar como encendido un MCP que por defecto esté apagado; la aplicación real de esa
+  marca está pendiente (ver la limitación más abajo).
 
 El catálogo se pide con el **directorio de trabajo** del cron (`opencode mcp list`), así que incluye
 los MCPs definidos en el proyecto (`.opencode/opencode.jsonc`). Si dejas el directorio vacío, se usa el
@@ -205,11 +209,19 @@ ejecución, LAICron pasa esos valores a `opencode` con la variable `OPENCODE_CON
 `~/.config/opencode/opencode.jsonc` ni la configuración del proyecto. Los MCPs que ya no existan se
 ignoran y el ejecutor `shell` no usa esta sección.
 
-Para comprobar el mecanismo a mano:
+**Limitación actual (opencode 2.2.5)**: el overlay se envía con `--standalone`, pero `opencode`
+rechaza las entradas parciales (`{"disabled": true}`) y el servidor sigue conectado. Fijar
+**Encendido** o **Apagado** todavía no cambia la ejecución real; la aplicación efectiva queda
+pendiente del cambio `fix-mcp-selection-application`.
+
+Para comprobar el mecanismo a mano hace falta `--standalone`: sin ese flag `opencode` usa el
+servicio compartido e ignora `OPENCODE_CONFIG_CONTENT` (ver *Contexto de cron*). La comprobación
+confirma que la configuración llega; con `opencode 2.2.5` el servidor sigue conectado (ver la
+limitación de arriba).
 
 ```sh
 OPENCODE_CONFIG_CONTENT='{"mcp":{"servers":{"xerj":{"disabled":true}}}}' \
-  opencode run --format json "Di solo: ok"
+  opencode run --standalone --format json "Di solo: ok"
 ```
 
 Y para ver la configuración efectiva que aplicaría `opencode`:
@@ -281,9 +293,87 @@ ejecución no falla: queda registrada y el aviso se marca como no entregado.
 
 ### Historial y conversación
 
-El detalle del cron muestra las ejecuciones (estado, disparador, inicio, duración, código de salida y
-error) y, en los crons de IA, los mensajes de usuario y asistente. El historial se conserva 90 días y
-un máximo de 200 ejecuciones por cron; las más antiguas se van borrando.
+El detalle del cron muestra las ejecuciones (estado, disparador, inicio, duración, tokens, coste,
+código de salida y error) y, en los crons de IA, los mensajes de usuario y asistente. El historial se
+conserva 90 días y un máximo de 200 ejecuciones por cron; las más antiguas se van borrando.
+
+### Contexto de cron
+
+Cada ejecución de `opencode (IA)` recibe una instrucción fija que le dice que es una tarea
+programada, que no habrá respuesta del usuario y que debe ejecutar y terminar sin saludar, pedir
+confirmación ni ofrecer ayuda. No se puede editar desde la ventana:
+
+| Qué | Detalle |
+| --- | --- |
+| Fichero | `~/.local/share/laicron/prompts/cron-system.md` (o `$XDG_DATA_HOME/laicron/prompts/cron-system.md` si defines esa variable) |
+| Contenido | Texto fijo del código; se reescribe en cada ejecución si no coincide |
+| Cómo llega | `OPENCODE_CONFIG_CONTENT` con `{"instructions":["<ruta del fichero>"]}` |
+| En el chat | No aparece: el historial solo guarda tu prompt y la respuesta |
+
+Si editas el fichero a mano, la siguiente ejecución lo sobrescribe. Si LAICron no puede escribirlo, el
+cron se ejecuta igual, sin instrucción, y el journal muestra
+`[laicron] no se pudo preparar la instrucción de cron; se ejecuta sin ella`.
+
+El runner añade `--standalone` a `opencode run` en **todas** las ejecuciones. `OPENCODE_CONFIG_CONTENT`
+solo se aplica con ese flag: sin él, `opencode` usa el servicio compartido y se ignora la
+configuración inline del cron (la instrucción y el overlay de MCPs). El precio es que cada ejecución
+arranca un servidor privado de `opencode`: tarda unos segundos más y ocupa algo más de RAM, con un
+máximo de 2 ejecuciones concurrentes de IA. A cambio, los crons quedan aislados del `opencode` que
+uses tú. La instrucción sí se aplica; el overlay de MCPs se envía, pero `opencode 2.2.5` rechaza las
+entradas parciales y los servidores siguen conectados (ver *MCPs*).
+
+### Consumo
+
+Cada ejecución de IA guarda el coste en USD y los tokens de entrada, salida, razonamiento y caché. Se
+leen **después** del run con `opencode session export <sesión> --sanitize --standalone`; sin
+`--standalone` el export consulta el servicio compartido y responde `Session not found`. Si el export
+falla o agota los 10 segundos por intento (hay un reintento), la ejecución se guarda igual, sin datos
+y sin marcarse como fallida.
+
+En el detalle del cron:
+
+- la tarjeta **Consumo** muestra el coste total, los tokens totales, el desglose de entrada y salida y
+  cuántas ejecuciones tienen datos (`3 de 5 ejecuciones con datos`);
+- la tabla **Historial de ejecuciones** tiene las columnas **Tokens** y **Coste** por ejecución.
+
+Los runs anteriores a esta versión, los de `shell` y los que no pudieron leer el export muestran
+`—`, que significa «sin datos» y no «cero». Un modelo gratuito sí muestra `$0.00` con sus tokens. El
+coste se formatea con dos decimales si es cero, cuatro para importes normales y seis por debajo de un
+céntimo.
+
+En modo **Continua**, cada ejecución cuenta solo los mensajes del asistente creados desde su inicio,
+pero los tokens de **entrada** incluyen todo el historial de la sesión: el modelo vuelve a leer la
+conversación anterior en cada run y eso se paga. La tarjeta lo recuerda con una nota.
+
+Limitaciones:
+
+- el export crece con la sesión, así que en sesiones continuas muy largas tarda más en leerse;
+- si continúas esa misma sesión por fuera de LAICron mientras el run está en marcha, los mensajes que
+  se creen después del inicio también se suman al consumo del run.
+
+Por API:
+
+```sh
+curl -sS -H "Authorization: Bearer $TOKEN" "$BASE/api/jobs/<ID>/usage"
+```
+
+```json
+{
+  "usage": {
+    "runs": 5,
+    "runsWithUsage": 3,
+    "inputTokens": 16200,
+    "outputTokens": 2340,
+    "reasoningTokens": 0,
+    "cacheReadTokens": 0,
+    "cacheWriteTokens": 0,
+    "costUsd": 0.0421
+  }
+}
+```
+
+`runs` cuenta todas las ejecuciones del cron y `runsWithUsage` solo las que tienen algún dato; los
+totales suman únicamente las ejecuciones con datos.
 
 ## Datos y seguridad
 
@@ -302,8 +392,10 @@ un máximo de 200 ejecuciones por cron; las más antiguas se van borrando.
 - Los crons se ejecutan **con tu usuario y tus permisos**, sin sandbox ni privilegios adicionales. Un
   cron de shell puede hacer cualquier cosa que puedas hacer tú en una terminal; un cron de IA ejecuta
   `opencode` con tu configuración y tus permisos de `opencode`.
-- Los crons de IA se lanzan con `opencode run --format json` sin flags de auto-aprobación; `opencode`
-  aplica su propia configuración de permisos.
+- Los crons de IA se lanzan con `opencode run --standalone --format json` sin flags de
+  auto-aprobación; `opencode` aplica su propia configuración de permisos. `--standalone` arranca un
+  servidor privado por ejecución y evita depender del servicio compartido, que ignoraría la
+  configuración inline del cron.
 - El daemon pasa a los crons su entorno y el `PATH` capturado en la instalación. No hay variables de
   entorno por cron: todos heredan el entorno del servicio. Si `opencode` no estaba en el `PATH` al
   instalar, los crons de IA fallarán con `opencode no está instalado o no está en el PATH`.
@@ -443,6 +535,24 @@ El formulario conserva los estados ya guardados y **Recargar opciones** reintent
 listado falla al ejecutar el cron, la ejecución continúa con la configuración heredada de `opencode`,
 no se marca como fallida y el journal muestra `[laicron] no se pudo leer la lista de MCPs; se usa la
 configuración heredada`.
+
+### El consumo muestra `—`
+
+Significa que esa ejecución no tiene datos de consumo, no que gastara cero. Ocurre en:
+
+- ejecuciones guardadas antes de que existiera el registro de consumo;
+- crons de `shell`, que no pasan por `opencode`;
+- ejecuciones cuyo `opencode session export <sesión> --sanitize --standalone` falló o agotó los 10
+  segundos.
+
+Comprueba el export a mano con una sesión reciente (el identificador está en `session_id`, en la
+respuesta de `GET /api/jobs/<ID>/runs`):
+
+```sh
+opencode session export "<sesión>" --sanitize --standalone | head -c 400
+```
+
+Si falla siempre, revisa la versión de `opencode` y que la sesión siga existiendo.
 
 ### Las notificaciones no llegan
 
