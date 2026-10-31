@@ -9,11 +9,17 @@ import {
   createShellRunner,
   type OpencodeMcpOption,
 } from "../../src/runners/index.js";
+import { cronInstructionsPath } from "../../src/runners/cron-instructions.js";
 import { makeJob } from "./job.js";
 
 const baseDir = mkdtempSync(join(tmpdir(), "laicron-mcp-overlay-"));
 const fakeBinDir = join(baseDir, "bin");
 const fakeBin = join(fakeBinDir, "opencode");
+// Keep the generated instruction file out of the real home directory.
+const dataHome = join(baseDir, "data");
+const previousDataHome = process.env.XDG_DATA_HOME;
+
+process.env.XDG_DATA_HOME = dataHome;
 
 mkdirSync(fakeBinDir, { recursive: true });
 
@@ -41,6 +47,12 @@ writeFileSync(fakeBin, FAKE_OPENCODE);
 chmodSync(fakeBin, 0o755);
 
 afterAll(() => {
+  if (previousDataHome === undefined) {
+    delete process.env.XDG_DATA_HOME;
+  } else {
+    process.env.XDG_DATA_HOME = previousDataHome;
+  }
+
   rmSync(baseDir, { recursive: true, force: true });
 });
 
@@ -88,6 +100,15 @@ function listerReturning(options: OpencodeMcpOption[]) {
   return { list: vi.fn(async () => options) };
 }
 
+interface CapturedOverlay {
+  mcp?: { servers: Record<string, { disabled: boolean }> };
+  instructions?: string[];
+}
+
+function readOverlay(path: string): CapturedOverlay {
+  return JSON.parse(readFileSync(path, "utf8")) as CapturedOverlay;
+}
+
 function idleSignal(): AbortSignal {
   return new AbortController().signal;
 }
@@ -110,15 +131,19 @@ describe("opencode runner MCP overlay", () => {
 
     expect(result.status).toBe("success");
     expect(readFileSync(presence, "utf8")).toBe("set");
-    expect(readFileSync(capture, "utf8")).toBe(
-      '{"mcp":{"servers":{"github":{"disabled":false},"xerj":{"disabled":true}}}}',
-    );
+
+    const overlay = readOverlay(capture);
+
+    expect(overlay.mcp).toEqual({
+      servers: { github: { disabled: false }, xerj: { disabled: true } },
+    });
+    expect(overlay.instructions).toEqual([cronInstructionsPath()]);
     expect(readFileSync(capture, "utf8")).not.toContain("super-productivity");
     expect(lister.list).toHaveBeenCalledTimes(1);
     expect(lister.list).toHaveBeenCalledWith(process.cwd());
   });
 
-  it("drops overrides for unknown MCPs and leaves the variable undefined", async () => {
+  it("drops overrides for unknown MCPs and only injects the instruction", async () => {
     const capture = capturePath("ghost");
     const presence = capturePath("ghost-presence");
     const runner = createOpencodeRunner(makeEnv({ capture, presence }), {
@@ -131,8 +156,12 @@ describe("opencode runner MCP overlay", () => {
     );
 
     expect(result.status).toBe("success");
-    expect(readFileSync(capture, "utf8")).toBe("");
-    expect(readFileSync(presence, "utf8")).toBe("unset");
+    expect(readFileSync(presence, "utf8")).toBe("set");
+
+    const overlay = readOverlay(capture);
+
+    expect(overlay.mcp).toBeUndefined();
+    expect(overlay.instructions).toEqual([cronInstructionsPath()]);
   });
 
   it("does not list MCPs when the job has no overrides", async () => {
@@ -148,8 +177,12 @@ describe("opencode runner MCP overlay", () => {
 
     expect(result.status).toBe("success");
     expect(lister.list).not.toHaveBeenCalled();
-    expect(readFileSync(capture, "utf8")).toBe("");
-    expect(readFileSync(presence, "utf8")).toBe("unset");
+    expect(readFileSync(presence, "utf8")).toBe("set");
+
+    const overlay = readOverlay(capture);
+
+    expect(overlay.mcp).toBeUndefined();
+    expect(overlay.instructions).toEqual([cronInstructionsPath()]);
   });
 
   it("degrades to the inherited configuration when the catalog is empty", async () => {
@@ -168,8 +201,12 @@ describe("opencode runner MCP overlay", () => {
 
       // A failed listing is not a run failure.
       expect(result.status).toBe("success");
-      expect(readFileSync(capture, "utf8")).toBe("");
-      expect(readFileSync(presence, "utf8")).toBe("unset");
+      expect(readFileSync(presence, "utf8")).toBe("set");
+
+      const overlay = readOverlay(capture);
+
+      expect(overlay.mcp).toBeUndefined();
+      expect(overlay.instructions).toEqual([cronInstructionsPath()]);
 
       const written = writeSpy.mock.calls.map((call) => String(call[0])).join("");
 
@@ -197,8 +234,12 @@ describe("opencode runner MCP overlay", () => {
     );
 
     expect(lister.list).toHaveBeenCalledTimes(1);
-    expect(readFileSync(capture, "utf8")).toBe("");
-    expect(readFileSync(presence, "utf8")).toBe("unset");
+    expect(readFileSync(presence, "utf8")).toBe("set");
+
+    const overlay = readOverlay(capture);
+
+    expect(overlay.mcp).toBeUndefined();
+    expect(overlay.instructions).toEqual([cronInstructionsPath()]);
   });
 
   it("leaves the shell runner untouched", async () => {
@@ -237,6 +278,6 @@ describe("opencode runner MCP overlay", () => {
     const received = readFileSync(argsCapture, "utf8").split(" ");
 
     expect(received[received.length - 1]).toBe("hola");
-    expect(readFileSync(argsCapture, "utf8")).toBe("run --format json --foo bar hola");
+    expect(readFileSync(argsCapture, "utf8")).toBe("run --standalone --format json --foo bar hola");
   });
 });

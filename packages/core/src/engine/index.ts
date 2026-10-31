@@ -227,6 +227,7 @@ export function createEngine(deps: EngineDeps): Engine {
       error,
       sessionId: result.sessionId,
       notificationDelivered: null,
+      usage: result.usage ?? null,
     });
 
     deps.jobs.recordOutcome(job.id, status, finishedAt);
@@ -254,6 +255,7 @@ export function createEngine(deps: EngineDeps): Engine {
         error,
         sessionId: result.sessionId,
         notificationDelivered,
+        usage: result.usage ?? null,
       });
     }
 
