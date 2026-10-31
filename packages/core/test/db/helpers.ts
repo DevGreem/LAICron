@@ -26,6 +26,16 @@ export function openTempDatabase(options: { nested?: boolean } = {}): TempDataba
   return { db, dir, path };
 }
 
+/**
+ * Reserves a throwaway database path under os.tmpdir() without opening it, for tests that need
+ * to build a legacy database by hand before letting `openDatabase` migrate it.
+ */
+export function tempDatabasePath(): { dir: string; path: string } {
+  const dir = mkdtempSync(join(tmpdir(), "laicron-db-"));
+  directories.push(dir);
+  return { dir, path: join(dir, "laicron.db") };
+}
+
 /** Closes every handle first, then removes the temporary directories (including WAL files). */
 export function cleanupTempDatabases(): void {
   for (const db of databases.splice(0)) {

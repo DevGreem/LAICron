@@ -9,8 +9,8 @@ import { applyJobDefaults, validateJobFields } from "./validation.js";
 
 const JOB_COLUMNS = `id, name, enabled, runner, prompt, command, args_json, cwd, model, agent,
   session_mode, session_id, schedule_kind, schedule_expr, timezone, catch_up, catch_up_limit,
-  overlap, timeout_sec, notify, notify_on, next_run_at, last_run_at, last_status, created_at,
-  updated_at`;
+  overlap, timeout_sec, notify, notify_on, mcp_overrides, next_run_at, last_run_at, last_status,
+  created_at, updated_at`;
 
 function currentAsCreateInput(job: Job): CreateJobInput {
   return {
@@ -34,6 +34,7 @@ function currentAsCreateInput(job: Job): CreateJobInput {
     timeoutSec: job.timeoutSec,
     notify: job.notify,
     notifyOn: job.notifyOn,
+    mcpOverrides: job.mcpOverrides,
   };
 }
 
@@ -53,7 +54,7 @@ export function createJobRepository(db: DatabaseSync): JobRepository {
       const now = Date.now();
       db.prepare(
         `INSERT INTO jobs (${JOB_COLUMNS})
-         VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+         VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
       ).run(
         id,
         fields.name,
@@ -76,6 +77,7 @@ export function createJobRepository(db: DatabaseSync): JobRepository {
         fields.timeoutSec,
         fields.notify ? 1 : 0,
         fields.notifyOn,
+        JSON.stringify(fields.mcpOverrides),
         null,
         null,
         null,
@@ -121,7 +123,7 @@ export function createJobRepository(db: DatabaseSync): JobRepository {
            name = ?, enabled = ?, runner = ?, prompt = ?, command = ?, args_json = ?, cwd = ?,
            model = ?, agent = ?, session_mode = ?, session_id = ?, schedule_kind = ?,
            schedule_expr = ?, timezone = ?, catch_up = ?, catch_up_limit = ?, overlap = ?,
-           timeout_sec = ?, notify = ?, notify_on = ?, updated_at = ?
+           timeout_sec = ?, notify = ?, notify_on = ?, mcp_overrides = ?, updated_at = ?
          WHERE id = ?`,
       ).run(
         merged.name,
@@ -144,6 +146,7 @@ export function createJobRepository(db: DatabaseSync): JobRepository {
         merged.timeoutSec,
         merged.notify ? 1 : 0,
         merged.notifyOn,
+        JSON.stringify(merged.mcpOverrides),
         updatedAt,
         id,
       );

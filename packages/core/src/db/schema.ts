@@ -29,6 +29,7 @@ CREATE TABLE IF NOT EXISTS jobs (
   timeout_sec INTEGER NOT NULL DEFAULT 600,
   notify INTEGER NOT NULL DEFAULT 1,
   notify_on TEXT NOT NULL DEFAULT 'always',
+  mcp_overrides TEXT NOT NULL DEFAULT '{}',
   next_run_at INTEGER,
   last_run_at INTEGER,
   last_status TEXT,
@@ -72,7 +73,26 @@ CREATE INDEX IF NOT EXISTS idx_runs_job_status ON runs(job_id, status);
 CREATE INDEX IF NOT EXISTS idx_messages_job_created ON messages(job_id, created_at);
 `;
 
+function jobColumns(db: DatabaseSync): string[] {
+  return db
+    .prepare("PRAGMA table_info('jobs')")
+    .all()
+    .map((column) => String(column["name"]));
+}
+
+/**
+ * Adds columns introduced after the first release to databases created by older versions.
+ * Each migration is guarded by a column check, so it is safe to run on every startup.
+ */
+function migrateJobs(db: DatabaseSync): void {
+  const columns = jobColumns(db);
+  if (!columns.includes("mcp_overrides")) {
+    db.exec("ALTER TABLE jobs ADD COLUMN mcp_overrides TEXT NOT NULL DEFAULT '{}'");
+  }
+}
+
 /** Applies the schema to an open database. Safe to call on every startup. */
 export function applySchema(db: DatabaseSync): void {
   db.exec(SCHEMA_SQL);
+  migrateJobs(db);
 }

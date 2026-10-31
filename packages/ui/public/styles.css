@@ -474,6 +474,35 @@ a:hover {
   justify-content: flex-end;
 }
 
+.mcp-section {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+}
+
+.mcp-table .mcp-name {
+  font-weight: 600;
+  overflow-wrap: anywhere;
+}
+
+.mcp-table .mcp-default,
+.mcp-table .mcp-effective {
+  color: var(--muted);
+}
+
+.mcp-table .mcp-state {
+  min-width: 140px;
+}
+
+.mcp-effective-cell {
+  white-space: nowrap;
+}
+
+.mcp-pin {
+  font-size: 1rem;
+  line-height: 1;
+}
+
 .field {
   display: flex;
   flex-direction: column;
