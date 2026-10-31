@@ -201,6 +201,11 @@ function listMessages(deps: JobRouteDeps, res: ServerResponse, url: URL, id: str
   sendJson(res, 200, { messages, total, limit, offset });
 }
 
+function getJobUsage(deps: JobRouteDeps, res: ServerResponse, id: string): void {
+  requireJob(deps, id);
+  sendJson(res, 200, { usage: deps.runs.usageByJob(id) });
+}
+
 function decodeJobId(raw: string): string {
   try {
     return decodeURIComponent(raw);
@@ -296,6 +301,12 @@ export async function handleJobsRoute(
         return false;
       }
       listMessages(deps, res, url, id);
+      return true;
+    case "usage":
+      if (method !== "GET") {
+        return false;
+      }
+      getJobUsage(deps, res, id);
       return true;
     default:
       return false;
