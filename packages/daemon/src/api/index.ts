@@ -10,6 +10,11 @@ import type {
   RunRepository,
 } from "@laicron/core/db";
 
+import {
+  createOpencodeOptions,
+  type OpencodeOptions,
+  type OpencodeOptionsService,
+} from "../opencode-options.js";
 import { sendError, sendJson, sendKnownError } from "./errors.js";
 import { handleJobsRoute } from "./jobs.js";
 import { serveStatic } from "./static.js";
@@ -25,6 +30,7 @@ export interface ApiDeps {
   now?: () => number;
   uiRoot: string;
   version: string;
+  opencodeOptions?: OpencodeOptionsService;
 }
 
 export interface ApiServer {
@@ -44,6 +50,23 @@ interface SseClient {
 
 function serializeEvent(event: EngineEvent): string {
   return `event: ${event.type}\ndata: ${JSON.stringify(event)}\n\n`;
+}
+
+/** Catalog failures must never become a 500: the form degrades to text inputs. */
+async function readOpencodeOptions(
+  service: OpencodeOptionsService,
+  refresh: boolean,
+): Promise<OpencodeOptions> {
+  try {
+    return await service.get(refresh);
+  } catch {
+    return {
+      available: false,
+      reason: "No se pudo leer el catálogo de opencode",
+      models: [],
+      agents: [],
+    };
+  }
 }
 
 function tokenMatches(provided: string, expected: string): boolean {
@@ -82,6 +105,8 @@ export function createApiServer(deps: ApiDeps): ApiServer {
     messages: deps.messages,
     now,
   };
+
+  const opencodeOptions = deps.opencodeOptions ?? createOpencodeOptions();
 
   const unsubscribe = deps.engine.onEvent((event) => {
     if (sseClients.size === 0) {
@@ -168,6 +193,19 @@ export function createApiServer(deps: ApiDeps): ApiServer {
 
     if (segments.length === 2 && segments[1] === "events" && method === "GET") {
       attachSse(req, res);
+      return;
+    }
+
+    const isOpencodeOptionsRoute =
+      segments.length === 3 &&
+      segments[0] === "api" &&
+      segments[1] === "opencode" &&
+      segments[2] === "options";
+
+    if (isOpencodeOptionsRoute && method === "GET") {
+      const refreshParam = url.searchParams.get("refresh");
+      const refresh = refreshParam === "1" || refreshParam === "true";
+      sendJson(res, 200, await readOpencodeOptions(opencodeOptions, refresh));
       return;
     }
 
