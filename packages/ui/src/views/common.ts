@@ -1,5 +1,6 @@
 import { button, h } from "../dom.js";
 import { RUN_STATUS_LABELS } from "../format.js";
+import { t } from "../i18n.js";
 import type { RunStatus } from "../types.js";
 
 /** Page title, optional subtitle and right-aligned actions. */
@@ -22,7 +23,7 @@ export function pageHeader(
   );
 }
 
-export function loadingView(message = "Cargando…"): HTMLElement {
+export function loadingView(message = t("common.loading")): HTMLElement {
   return h("p", { class: "muted loading", text: message, attrs: { role: "status" } });
 }
 
@@ -34,7 +35,7 @@ export function errorPanel(message: string, onRetry?: () => void): HTMLElement {
     h("p", { class: "error-panel-message", text: message }),
   );
   if (onRetry !== undefined) {
-    panel.appendChild(button("Reintentar", () => onRetry(), { variant: "ghost" }));
+    panel.appendChild(button(t("common.retry"), () => onRetry(), { variant: "ghost" }));
   }
   return panel;
 }
@@ -43,9 +44,9 @@ export function emptyPanel(message: string): HTMLElement {
   return h("div", { class: "panel empty", text: message });
 }
 
-/** Colored run-status badge with the Spanish label. */
+/** Colored run-status badge with the localized label. */
 export function statusBadge(status: RunStatus | null): HTMLElement {
-  const label = status === null ? "Sin ejecuciones" : RUN_STATUS_LABELS[status];
+  const label = status === null ? t("common.noRuns") : RUN_STATUS_LABELS[status];
   const className = status === null ? "badge status-none" : `badge status-${status}`;
   return h("span", { class: className, text: label });
 }
@@ -54,6 +55,6 @@ export function statusBadge(status: RunStatus | null): HTMLElement {
 export function enabledBadge(enabled: boolean): HTMLElement {
   return h("span", {
     class: enabled ? "badge status-success" : "badge status-none",
-    text: enabled ? "Activo" : "En pausa",
+    text: enabled ? t("common.active") : t("common.paused"),
   });
 }

@@ -253,6 +253,8 @@ beforeAll(async () => {
     LAICRON_DB_PATH: join(directory, "laicron.db"),
     LAICRON_CONFIG_DIR: configDir,
     LAICRON_UI_ROOT: uiRoot,
+    // Keep assertions in Spanish regardless of the machine locale.
+    LAICRON_LANG: "es",
   };
 
   daemon = startDaemon();

@@ -13,6 +13,7 @@ import type {
   RunTrigger,
 } from "../types.js";
 import { Semaphore } from "./semaphore.js";
+import { t } from "../i18n.js";
 
 /** Default global cap for concurrent AI (`opencode`) executions. */
 const DEFAULT_AI_CONCURRENCY = 2;
@@ -351,7 +352,7 @@ export function createEngine(deps: EngineDeps): Engine {
     async runNow(jobId: string): Promise<Run> {
       const job = deps.jobs.get(jobId);
       if (job === null) {
-        throw new NotFoundError(`No se encontró el cron ${jobId}.`);
+        throw new NotFoundError(t("db.jobNotFound", { id: jobId }));
       }
 
       return executeJob(job, "manual");

@@ -103,6 +103,20 @@ a:hover {
   font-size: 0.9rem;
 }
 
+.topbar-actions {
+  margin-left: auto;
+}
+
+.language-select {
+  background: var(--surface);
+  color: var(--text);
+  border: 1px solid var(--border);
+  border-radius: 6px;
+  padding: 4px 8px;
+  font-size: 0.85rem;
+  cursor: pointer;
+}
+
 .banner {
   position: sticky;
   top: 0;

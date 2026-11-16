@@ -15,6 +15,7 @@ import {
   SESSION_MODE_LABELS,
   scheduleSummary,
 } from "../format.js";
+import { t } from "../i18n.js";
 import type { Job, JobUsage, Message, MessagePage, Run, RunPage } from "../types.js";
 import {
   emptyPanel,
@@ -30,9 +31,9 @@ const MESSAGES_LIMIT = 100;
 
 function pageInfo(offset: number, count: number, total: number): string {
   if (total === 0 || count === 0) {
-    return "Sin resultados";
+    return t("detail.pageEmpty");
   }
-  return `Mostrando ${offset + 1}–${offset + count} de ${total}`;
+  return t("detail.pageInfo", { from: offset + 1, to: offset + count, total });
 }
 
 function paginationBar(
@@ -93,7 +94,10 @@ function messageBubble(message: Message): HTMLElement {
     h(
       "header",
       { class: "message-meta" },
-      h("span", { class: "message-role", text: isUser ? "Usuario" : "Asistente" }),
+      h("span", {
+        class: "message-role",
+        text: isUser ? t("detail.roleUser") : t("detail.roleAssistant"),
+      }),
       h("span", { class: "muted small", text: formatDateTime(message.createdAt) }),
     ),
     h("p", { class: "message-content", text: message.content }),
@@ -129,16 +133,16 @@ export function createDetailView(ctx: AppContext, jobId: string): View {
   function renderError(error: unknown): void {
     const notFound = error instanceof ApiError && error.status === 404;
     content.replaceChildren(
-      pageHeader("Detalle del cron", null),
+      pageHeader(t("detail.title"), null),
       errorPanel(
-        notFound ? "No se encontró el cron." : messageFromError(error),
+        notFound ? t("detail.notFound") : messageFromError(error),
         notFound
           ? undefined
           : () => {
               void refresh();
             },
       ),
-      h("a", { class: "btn", text: "Volver a la lista", attrs: { href: "#/" } }),
+      h("a", { class: "btn", text: t("detail.back"), attrs: { href: "#/" } }),
     );
   }
 
@@ -159,39 +163,44 @@ export function createDetailView(ctx: AppContext, jobId: string): View {
       list.append(h("dt", { text: term }), h("dd", {}, value));
     };
 
-    add("Estado", enabledBadge(job.enabled));
-    add("Ejecutor", RUNNER_LABELS[job.runner]);
-    add("Programación", scheduleSummary(job));
-    add("Zona horaria", job.timezone);
-    add("Próxima ejecución", formatDateTime(job.nextRunAt));
-    add("Última ejecución", formatDateTime(job.lastRunAt));
-    add("Último estado", statusBadge(job.lastStatus));
-    add("Recuperación", `${CATCH_UP_LABELS[job.catchUp]} (límite ${job.catchUpLimit})`);
-    add("Solapamiento", OVERLAP_LABELS[job.overlap]);
-    add("Tiempo máximo", `${job.timeoutSec} s`);
+    add(t("detail.termStatus"), enabledBadge(job.enabled));
+    add(t("detail.termRunner"), RUNNER_LABELS[job.runner]);
+    add(t("detail.termSchedule"), scheduleSummary(job));
+    add(t("detail.termTimezone"), job.timezone);
+    add(t("detail.termNextRun"), formatDateTime(job.nextRunAt));
+    add(t("detail.termLastRun"), formatDateTime(job.lastRunAt));
+    add(t("detail.termLastStatus"), statusBadge(job.lastStatus));
     add(
-      "Notificaciones",
-      job.notify ? `Sí (${NOTIFY_ON_LABELS[job.notifyOn].toLowerCase()})` : "No",
+      t("detail.termCatchUp"),
+      t("detail.catchUpValue", { label: CATCH_UP_LABELS[job.catchUp], limit: job.catchUpLimit }),
+    );
+    add(t("detail.termOverlap"), OVERLAP_LABELS[job.overlap]);
+    add(t("detail.termTimeout"), `${job.timeoutSec} s`);
+    add(
+      t("detail.termNotifications"),
+      job.notify
+        ? t("detail.notificationsYes", { when: NOTIFY_ON_LABELS[job.notifyOn].toLowerCase() })
+        : t("detail.no"),
     );
     add(
-      "Sesión",
+      t("detail.termSession"),
       job.sessionId === null
         ? SESSION_MODE_LABELS[job.sessionMode]
         : `${SESSION_MODE_LABELS[job.sessionMode]} (${job.sessionId})`,
     );
-    add("Creado", formatDateTime(job.createdAt));
-    add("Actualizado", formatDateTime(job.updatedAt));
+    add(t("detail.termCreated"), formatDateTime(job.createdAt));
+    add(t("detail.termUpdated"), formatDateTime(job.updatedAt));
 
     if (job.runner === "opencode") {
-      add("Prompt", h("pre", { class: "code-block", text: job.prompt ?? "" }));
-      add("Modelo", job.model ?? "—");
-      add("Agente", job.agent ?? "—");
+      add(t("detail.termPrompt"), h("pre", { class: "code-block", text: job.prompt ?? "" }));
+      add(t("detail.termModel"), job.model ?? "—");
+      add(t("detail.termAgent"), job.agent ?? "—");
     } else {
-      add("Comando", h("pre", { class: "code-block", text: job.command ?? "" }));
-      add("Directorio", job.cwd);
+      add(t("detail.termCommand"), h("pre", { class: "code-block", text: job.command ?? "" }));
+      add(t("detail.termCwd"), job.cwd);
     }
     if (job.args.length > 0) {
-      add("Argumentos", job.args.join(" "));
+      add(t("detail.termArgs"), job.args.join(" "));
     }
 
     return list;
@@ -212,9 +221,10 @@ export function createDetailView(ctx: AppContext, jobId: string): View {
   }
 
   function runsSection(page: RunPage): HTMLElement {
-    const meta = page.total === 1 ? "1 ejecución" : `${page.total} ejecuciones`;
+    const meta =
+      page.total === 1 ? t("detail.runsOne") : t("detail.runsMany", { count: page.total });
     if (page.runs.length === 0) {
-      return section("Historial de ejecuciones", meta, emptyPanel("Todavía no hay ejecuciones."));
+      return section(t("detail.runsTitle"), meta, emptyPanel(t("detail.runsEmpty")));
     }
 
     const table = h(
@@ -223,21 +233,21 @@ export function createDetailView(ctx: AppContext, jobId: string): View {
       h(
         "table",
         { class: "table" },
-        h("caption", { class: "sr-only", text: "Historial de ejecuciones" }),
+        h("caption", { class: "sr-only", text: t("detail.runsTitle") }),
         h(
           "thead",
           {},
           h(
             "tr",
             {},
-            h("th", { text: "Estado", attrs: { scope: "col" } }),
-            h("th", { text: "Disparador", attrs: { scope: "col" } }),
-            h("th", { text: "Inicio", attrs: { scope: "col" } }),
-            h("th", { text: "Duración", attrs: { scope: "col" } }),
-            h("th", { text: "Tokens", attrs: { scope: "col" } }),
-            h("th", { text: "Coste", attrs: { scope: "col" } }),
-            h("th", { text: "Código de salida", attrs: { scope: "col" } }),
-            h("th", { text: "Error", attrs: { scope: "col" } }),
+            h("th", { text: t("detail.termStatus"), attrs: { scope: "col" } }),
+            h("th", { text: t("detail.colTrigger"), attrs: { scope: "col" } }),
+            h("th", { text: t("detail.colStart"), attrs: { scope: "col" } }),
+            h("th", { text: t("detail.colDuration"), attrs: { scope: "col" } }),
+            h("th", { text: t("detail.colTokens"), attrs: { scope: "col" } }),
+            h("th", { text: t("detail.colCost"), attrs: { scope: "col" } }),
+            h("th", { text: t("detail.colExitCode"), attrs: { scope: "col" } }),
+            h("th", { text: t("detail.colError"), attrs: { scope: "col" } }),
           ),
         ),
         h("tbody", {}, ...page.runs.map((run) => runRow(run))),
@@ -260,15 +270,15 @@ export function createDetailView(ctx: AppContext, jobId: string): View {
         : null;
 
     return section(
-      "Historial de ejecuciones",
+      t("detail.runsTitle"),
       meta,
       table,
       paginationBar(
         pageInfo(page.offset, page.runs.length, page.total),
         previous,
         next,
-        "Más recientes",
-        "Más antiguas",
+        t("detail.newer"),
+        t("detail.older"),
       ),
     );
   }
@@ -277,7 +287,7 @@ export function createDetailView(ctx: AppContext, jobId: string): View {
     const card = h("div", { class: "usage-card", attrs: { id: "job-usage" } });
 
     if (usage.runsWithUsage === 0) {
-      card.append(h("p", { class: "usage-empty", text: "Todavía no hay datos de consumo." }));
+      card.append(h("p", { class: "usage-empty", text: t("detail.usageEmpty") }));
     } else {
       card.append(
         h(
@@ -286,13 +296,13 @@ export function createDetailView(ctx: AppContext, jobId: string): View {
           h(
             "div",
             { class: "usage-metric" },
-            h("span", { class: "usage-label", text: "Coste total" }),
+            h("span", { class: "usage-label", text: t("detail.usageTotalCost") }),
             h("span", { class: "usage-cost", text: formatCost(usage.costUsd) }),
           ),
           h(
             "div",
             { class: "usage-metric" },
-            h("span", { class: "usage-label", text: "Tokens" }),
+            h("span", { class: "usage-label", text: t("detail.usageTokens") }),
             h("span", {
               class: "usage-tokens",
               text: formatTokens(usage.inputTokens + usage.outputTokens),
@@ -300,36 +310,34 @@ export function createDetailView(ctx: AppContext, jobId: string): View {
           ),
           h("span", {
             class: "usage-breakdown",
-            text: `Entrada ${formatTokens(usage.inputTokens)} · Salida ${formatTokens(usage.outputTokens)}`,
+            text: t("detail.usageBreakdown", {
+              input: formatTokens(usage.inputTokens),
+              output: formatTokens(usage.outputTokens),
+            }),
           }),
         ),
         h("p", {
           class: "usage-runs",
-          text: `${usage.runsWithUsage} de ${usage.runs} ejecuciones con datos`,
+          text: t("detail.usageRuns", {
+            withData: usage.runsWithUsage,
+            runs: usage.runs,
+          }),
         }),
       );
     }
 
     if (job.sessionMode === "continuous") {
-      card.append(
-        h("p", {
-          class: "usage-note",
-          text: "En modo continuo, la entrada incluye el historial de la sesión.",
-        }),
-      );
+      card.append(h("p", { class: "usage-note", text: t("detail.usageNote") }));
     }
 
-    return section("Consumo", null, card);
+    return section(t("detail.usageTitle"), null, card);
   }
 
   function chatSection(page: MessagePage): HTMLElement {
-    const meta = page.total === 1 ? "1 mensaje" : `${page.total} mensajes`;
+    const meta =
+      page.total === 1 ? t("detail.messagesOne") : t("detail.messagesMany", { count: page.total });
     if (page.messages.length === 0) {
-      return section(
-        "Chat",
-        meta,
-        emptyPanel("Todavía no hay mensajes. Aparecerán aquí tras cada ejecución."),
-      );
+      return section(t("detail.chatTitle"), meta, emptyPanel(t("detail.chatEmpty")));
     }
 
     const previous =
@@ -349,15 +357,15 @@ export function createDetailView(ctx: AppContext, jobId: string): View {
         : null;
 
     return section(
-      "Chat",
+      t("detail.chatTitle"),
       meta,
       h("div", { class: "chat" }, ...page.messages.map((message) => messageBubble(message))),
       paginationBar(
         pageInfo(page.offset, page.messages.length, page.total),
         previous,
         next,
-        "Anteriores",
-        "Siguientes",
+        t("detail.previous"),
+        t("detail.next"),
       ),
     );
   }
@@ -366,24 +374,24 @@ export function createDetailView(ctx: AppContext, jobId: string): View {
     hasData = true;
     const backLink = h("a", {
       class: "btn btn-ghost",
-      text: "Volver a la lista",
+      text: t("detail.back"),
       attrs: { href: "#/" },
     });
     const editLink = h("a", {
       class: "btn",
-      text: "Editar",
+      text: t("detail.edit"),
       attrs: { href: `#/jobs/${encodeURIComponent(job.id)}/edit` },
     });
     const toggleButton = button(
-      job.enabled ? "Pausar" : "Reanudar",
+      job.enabled ? t("list.pause") : t("list.resume"),
       () => {
         void perform(toggleButton, async () => {
           if (job.enabled) {
             await ctx.api.pauseJob(job.id);
-            ctx.notify(`Cron «${job.name}» pausado.`, "success");
+            ctx.notify(t("list.pausedToast", { name: job.name }), "success");
           } else {
             await ctx.api.resumeJob(job.id);
-            ctx.notify(`Cron «${job.name}» reanudado.`, "success");
+            ctx.notify(t("list.resumedToast", { name: job.name }), "success");
           }
           await refresh();
         });
@@ -391,11 +399,11 @@ export function createDetailView(ctx: AppContext, jobId: string): View {
       { variant: "ghost" },
     );
     const runButton = button(
-      "Ejecutar ahora",
+      t("list.runNow"),
       () => {
         void perform(runButton, async () => {
           await ctx.api.runJob(job.id);
-          ctx.notify(`Ejecución de «${job.name}» iniciada.`, "success");
+          ctx.notify(t("list.startedToast", { name: job.name }), "success");
           await refresh();
         });
       },

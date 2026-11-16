@@ -4,6 +4,7 @@ import { homedir } from "node:os";
 import { join } from "node:path";
 
 import { createMcpLister, type McpLister, type OpencodeMcpOption } from "@laicron/core/runners";
+import { t } from "@laicron/core/i18n";
 
 export type { OpencodeMcpOption };
 
@@ -61,10 +62,6 @@ const DEFAULT_TTL_MS = 60_000;
 const COMMAND_TIMEOUT_MS = 5_000;
 const TIMEOUT_CODE = 124;
 const MAX_BUFFER_BYTES = 32 * 1024 * 1024;
-
-const NOT_INSTALLED_REASON = "opencode no está instalado o no está en el PATH";
-const TIMEOUT_REASON = "opencode models agotó el tiempo de espera";
-const GENERIC_REASON = "No se pudo leer el catálogo de opencode";
 
 /**
  * Default {@link ExecFn}: wraps `execFile` in a promise and resolves for
@@ -141,12 +138,12 @@ function runWithTimeout(exec: ExecFn, cmd: string, args: string[]): Promise<Exec
 
 function modelsFailureReason(result: ExecResult): string {
   if (result.code === TIMEOUT_CODE) {
-    return TIMEOUT_REASON;
+    return t("opencode.timeout");
   }
   if (result.code === 127) {
-    return NOT_INSTALLED_REASON;
+    return t("runner.opencodeMissing");
   }
-  return `opencode models falló (código ${result.code})`;
+  return t("opencode.failed", { code: result.code });
 }
 
 function readVariants(raw: unknown): string[] {
@@ -329,7 +326,7 @@ export function createOpencodeOptions(deps: OpencodeOptionsDeps = {}): OpencodeO
     try {
       value = await loadCatalog();
     } catch {
-      value = { available: false, reason: GENERIC_REASON, models: [], agents: [] };
+      value = { available: false, reason: t("api.catalogFailed"), models: [], agents: [] };
     }
 
     catalogCache = { at: timestamp, value };

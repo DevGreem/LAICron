@@ -4,6 +4,7 @@ import { createMcpLister, type OpencodeMcpOption } from "./mcp.js";
 import { parseOpencodeStream } from "./opencode-events.js";
 import { runProcess } from "./process.js";
 import { parseSessionUsage } from "./usage.js";
+import { t } from "../i18n.js";
 
 const MAX_ERROR_LENGTH = 2_000;
 
@@ -12,14 +13,6 @@ const SESSION_EXPORT_TIMEOUT_MS = 10_000;
 
 /** Delay before the single retry of a failed session export. */
 const SESSION_EXPORT_RETRY_DELAY_MS = 250;
-
-const NOT_INSTALLED_ERROR = "opencode no está instalado o no está en el PATH";
-
-const MCP_LIST_WARNING =
-  "[laicron] no se pudo leer la lista de MCPs; se usa la configuración heredada\n";
-
-const CRON_INSTRUCTION_WARNING =
-  "[laicron] no se pudo preparar la instrucción de cron; se ejecuta sin ella\n";
 
 export interface OpencodeRunnerDeps {
   mcpLister?: { list(cwd: string, refresh?: boolean): Promise<OpencodeMcpOption[]> };
@@ -176,7 +169,7 @@ async function resolveMcpOverlay(
   }
 
   if (known.length === 0) {
-    process.stderr.write(MCP_LIST_WARNING);
+    process.stderr.write(`${t("runner.mcpListFailed")}\n`);
 
     return null;
   }
@@ -205,7 +198,7 @@ async function buildEnvironment(
   if (instructionsPath !== null) {
     overlay["instructions"] = [instructionsPath];
   } else {
-    process.stderr.write(CRON_INSTRUCTION_WARNING);
+    process.stderr.write(`${t("runner.cronInstructionFailed")}\n`);
   }
 
   if (Object.keys(overlay).length > 0) {
@@ -268,8 +261,8 @@ export function createOpencodeRunner(env?: NodeJS.ProcessEnv, deps?: OpencodeRun
           exitCode: null,
           output: parsed.text,
           error: notFound
-            ? NOT_INSTALLED_ERROR
-            : `no se pudo iniciar opencode: ${outcome.spawnError.message}`,
+            ? t("runner.opencodeMissing")
+            : t("runner.opencodeStart", { detail: outcome.spawnError.message }),
           sessionId: parsed.sessionId,
           usage,
         });

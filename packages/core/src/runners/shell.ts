@@ -1,5 +1,6 @@
 import type { Job, RunResult, Runner } from "../types.js";
 import { runProcess } from "./process.js";
+import { t } from "../i18n.js";
 
 const MAX_ERROR_LENGTH = 2_000;
 
@@ -28,7 +29,7 @@ export function createShellRunner(): Runner {
           status: "failed",
           exitCode: null,
           output: "",
-          error: "el job no tiene comando definido",
+          error: t("runner.shellNoCommand"),
           sessionId: null,
         });
       }
@@ -75,7 +76,7 @@ export function createShellRunner(): Runner {
           status: "failed",
           exitCode: null,
           output,
-          error: `no se pudo iniciar el shell: ${outcome.spawnError.message}`,
+          error: t("runner.shellSpawn", { detail: outcome.spawnError.message }),
           sessionId: null,
         });
       }
@@ -95,7 +96,7 @@ export function createShellRunner(): Runner {
           status: "failed",
           exitCode: 127,
           output,
-          error: `comando no encontrado: ${command}`,
+          error: t("runner.commandNotFound", { command }),
           sessionId: null,
         });
       }

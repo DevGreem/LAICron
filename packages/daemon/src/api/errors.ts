@@ -2,6 +2,7 @@ import type { IncomingMessage, ServerResponse } from "node:http";
 
 import { NotFoundError, ValidationError } from "@laicron/core/db";
 import { ScheduleError } from "@laicron/core/schedule";
+import { t } from "@laicron/core/i18n";
 
 /** Hard limit for request bodies: anything bigger is rejected before parsing. */
 export const MAX_BODY_BYTES = 1024 * 1024;
@@ -18,7 +19,7 @@ interface ErrorPayload {
 
 /** The request body is not valid JSON (or is empty). */
 export class InvalidJsonError extends Error {
-  constructor(message = "El cuerpo de la petición no es JSON válido.") {
+  constructor(message: string = t("api.invalidJson")) {
     super(message);
     this.name = "InvalidJsonError";
   }
@@ -26,7 +27,7 @@ export class InvalidJsonError extends Error {
 
 /** The request body exceeded {@link MAX_BODY_BYTES}. */
 export class PayloadTooLargeError extends Error {
-  constructor(message = "El cuerpo de la petición supera 1 MB.") {
+  constructor(message: string = t("api.payloadTooLarge")) {
     super(message);
     this.name = "PayloadTooLargeError";
   }

@@ -28,6 +28,10 @@ export default defineConfig({
         replacement: fileURLToPath(new URL("packages/core/src/clock/index.ts", repoRoot)),
       },
       {
+        find: "@laicron/core/i18n",
+        replacement: fileURLToPath(new URL("packages/core/src/i18n.ts", repoRoot)),
+      },
+      {
         find: "@laicron/core/notifications",
         replacement: fileURLToPath(new URL("packages/core/src/notifications/index.ts", repoRoot)),
       },

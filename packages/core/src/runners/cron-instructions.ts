@@ -2,19 +2,19 @@ import { mkdir, readFile, writeFile } from "node:fs/promises";
 import { homedir } from "node:os";
 import { dirname, join } from "node:path";
 
+import { t } from "../i18n.js";
+
 /**
  * Fixed instruction injected into every cron run. It is owned by LAICron: the
- * file on disk is always rewritten from this constant, so editing it by hand
- * has no effect on the next run.
+ * file on disk is always rewritten from this text, so editing it by hand has
+ * no effect on the next run.
  */
-export const CRON_INSTRUCTIONS = [
-  "Estás ejecutando una tarea programada por LAICron. No es una conversación:",
-  "no habrá respuesta del usuario.",
-  "- Ejecuta exactamente lo que pide el mensaje y termina.",
-  "- No saludes, no pidas confirmación, no preguntes nada y no ofrezcas ayuda.",
-  "- Responde solo con el resultado necesario, de forma concisa.",
-  "- Si falta un dato imprescindible, dilo en una línea y termina.",
-].join("\n");
+export function cronInstructions(): string {
+  return t("runner.cronInstruction");
+}
+
+/** Instruction in the locale active when the module loaded. */
+export const CRON_INSTRUCTIONS = cronInstructions();
 
 const DATA_HOME_FALLBACK = join(homedir(), ".local", "share");
 
@@ -54,8 +54,9 @@ export async function ensureCronInstructions(): Promise<string | null> {
   try {
     await mkdir(dirname(path), { recursive: true });
 
-    if ((await readIfPresent(path)) !== CRON_INSTRUCTIONS) {
-      await writeFile(path, CRON_INSTRUCTIONS, "utf8");
+    const instructions = cronInstructions();
+    if ((await readIfPresent(path)) !== instructions) {
+      await writeFile(path, instructions, "utf8");
     }
 
     return path;

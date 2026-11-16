@@ -8,6 +8,7 @@ window only ends this Python process; the daemon keeps running under systemd.
 
 from __future__ import annotations
 
+import os
 import sys
 
 APP_ID = "io.github.laicron.LAICron"
@@ -15,10 +16,33 @@ WINDOW_TITLE = "LAICron"
 WINDOW_WIDTH = 1100
 WINDOW_HEIGHT = 760
 
-MISSING_BINDINGS_MESSAGE = (
+
+def prefers_english() -> bool:
+    """True when the process environment asks for English."""
+    value = (
+        os.environ.get("LAICRON_LANG")
+        or os.environ.get("LC_ALL")
+        or os.environ.get("LC_MESSAGES")
+        or os.environ.get("LANG")
+        or ""
+    )
+    language = value.lower().replace("_", "-").split(".")[0]
+    return language.startswith("en")
+
+
+MISSING_BINDINGS_MESSAGE_ES = (
     "Error: no se encontró GTK3 o WebKit2 4.1. Instala las dependencias del "
     "sistema (por ejemplo, gir1.2-gtk-3.0 y gir1.2-webkit2-4.1) y vuelve a "
     "intentarlo."
+)
+
+MISSING_BINDINGS_MESSAGE_EN = (
+    "Error: GTK3 or WebKit2 4.1 was not found. Install the system dependencies "
+    "(for example gir1.2-gtk-3.0 and gir1.2-webkit2-4.1) and try again."
+)
+
+MISSING_BINDINGS_MESSAGE = (
+    MISSING_BINDINGS_MESSAGE_EN if prefers_english() else MISSING_BINDINGS_MESSAGE_ES
 )
 
 
@@ -66,7 +90,12 @@ def build_window(Gtk: object, WebKit2: object, url: str) -> object:
 
 def main(argv: list[str]) -> int:
     if len(argv) < 2:
-        print("Error: falta la URL de la interfaz. Uso: window.py <url>", file=sys.stderr)
+        message = (
+            "Error: missing interface URL. Usage: window.py <url>"
+            if prefers_english()
+            else "Error: falta la URL de la interfaz. Uso: window.py <url>"
+        )
+        print(message, file=sys.stderr)
         return 2
 
     bindings = load_bindings()

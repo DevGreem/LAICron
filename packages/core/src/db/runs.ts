@@ -4,6 +4,7 @@ import type { DatabaseSync } from "node:sqlite";
 import type { JobUsage, Run, RunStatus, RunTrigger, RunUsage } from "../types.js";
 import { NotFoundError } from "./errors.js";
 import { asNumber, toRun } from "./mappers.js";
+import { t } from "../i18n.js";
 import type { RunRepository } from "./repository-types.js";
 
 const RUN_COLUMNS = `id, job_id, "trigger", status, started_at, finished_at, duration_ms, exit_code,
@@ -32,7 +33,7 @@ export function createRunRepository(db: DatabaseSync): RunRepository {
   function requireRun(id: string): Run {
     const run = getRun(id);
     if (run === null) {
-      throw new NotFoundError(`No se encontró la ejecución ${id}.`);
+      throw new NotFoundError(t("db.runNotFound", { id }));
     }
     return run;
   }
@@ -79,7 +80,7 @@ export function createRunRepository(db: DatabaseSync): RunRepository {
         .prepare("UPDATE runs SET status = 'running', started_at = ? WHERE id = ?")
         .run(atMs, id);
       if (Number(result.changes) === 0) {
-        throw new NotFoundError(`No se encontró la ejecución ${id}.`);
+        throw new NotFoundError(t("db.runNotFound", { id }));
       }
       return requireRun(id);
     },
@@ -128,7 +129,7 @@ export function createRunRepository(db: DatabaseSync): RunRepository {
           id,
         );
       if (Number(update.changes) === 0) {
-        throw new NotFoundError(`No se encontró la ejecución ${id}.`);
+        throw new NotFoundError(t("db.runNotFound", { id }));
       }
       return requireRun(id);
     },

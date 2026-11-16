@@ -117,6 +117,18 @@ and a JSON body with `"status":"ok"`.
 
 ## Usage
 
+### Language
+
+The window, the API messages, the CLI and the desktop notifications are available in **Spanish
+(default)** and **English**.
+
+- **Window**: pick the language in the selector at the top right. The choice is remembered in the
+  browser's `localStorage`; you can also force it with `?lang=en` in the URL.
+- **CLI and daemon messages**: set `LAICRON_LANG=en` (or `es`). When it is unset, the usual
+  `LC_ALL`, `LC_MESSAGES` and `LANG` variables are read, and Spanish is the fallback.
+- **API**: the interface sends the `Accept-Language` header; validation errors and the rest of the
+  messages come back in the language of the request.
+
 ### Opening the window
 
 - From the applications menu: **LAICron**.
@@ -456,6 +468,7 @@ script).
 | `LAICRON_DB_PATH` | `$XDG_DATA_HOME/laicron/laicron.db` (or `~/.local/share/laicron/laicron.db`) | Database path |
 | `LAICRON_CONFIG_DIR` | `$XDG_CONFIG_HOME/laicron` (or `~/.config/laicron`) | Directory for the token and the `env` file |
 | `LAICRON_UI_ROOT` | `packages/ui/dist` inside the repo | Directory of the interface's static files |
+| `LAICRON_LANG` | From `LC_ALL`/`LC_MESSAGES`/`LANG`, else `es` | Language of the CLI, the daemon messages and the notifications (`es` or `en`) |
 
 The daemon started by systemd reads `~/.config/laicron/env`. To change, say, the port: add
 `LAICRON_PORT=7400` to that file, run `systemctl --user restart laicron` and export the same variable

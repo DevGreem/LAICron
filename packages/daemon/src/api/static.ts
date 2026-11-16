@@ -3,6 +3,7 @@ import type { ServerResponse } from "node:http";
 import { extname, resolve, sep } from "node:path";
 
 import { sendError } from "./errors.js";
+import { t } from "@laicron/core/i18n";
 
 const CONTENT_TYPES: Record<string, string> = {
   ".html": "text/html; charset=utf-8",
@@ -14,7 +15,7 @@ const CONTENT_TYPES: Record<string, string> = {
 };
 
 function notFound(res: ServerResponse): void {
-  sendError(res, 404, "not_found", "Recurso no encontrado.");
+  sendError(res, 404, "not_found", t("api.notFound"));
 }
 
 /**
