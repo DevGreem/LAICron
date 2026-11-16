@@ -508,7 +508,7 @@ shows the startup error; systemd retries every 3 seconds (`Restart=always`). If 
 installed, `scripts/install.sh` already checks the startup and shows the journal if it does not become
 active.
 
-### The window says "El planificador no responde"
+### The window says "The scheduler is not responding"
 
 The warning appears when the interface cannot confirm that the daemon is alive: the process is down
 or the last heartbeat is older than 60 seconds. Check:
@@ -525,8 +525,8 @@ laicron`.
 ### The window does not open
 
 - Check the daemon first (`systemctl --user status laicron`).
-- If `open` says `No se pudo abrir la ventana (¿está instalado python3?)`, `python3` is missing from
-  `PATH`.
+- If `open` says `Could not open the window (is python3 installed?)` (or the Spanish variant), `python3`
+  is missing from `PATH`.
 - If `python3` exists but the window does not appear, GTK3 or WebKit2 (4.1, with 4.0 as an
   alternative) is missing. `open` launches the launcher with its output silenced, so the error is not
   visible; check it by hand:
