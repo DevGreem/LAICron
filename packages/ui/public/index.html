@@ -10,7 +10,25 @@
   </head>
   <body>
     <div id="app" class="app">Cargando…</div>
-    <noscript>LAICron necesita JavaScript para mostrar la interfaz.</noscript>
+    <noscript
+      >LAICron necesita JavaScript para mostrar la interfaz. / LAICron needs JavaScript to show the
+      interface.</noscript
+    >
+    <script>
+      // Pick the language before the app module loads, so the first paint
+      // already matches the user's choice and there is no Spanish flash.
+      (function () {
+        try {
+          var stored = localStorage.getItem("laicron.locale");
+          var language = stored || navigator.language || "es";
+          var english = language.toLowerCase().indexOf("en") === 0;
+          document.documentElement.lang = english ? "en" : "es";
+          document.getElementById("app").textContent = english ? "Loading…" : "Cargando…";
+        } catch (error) {
+          // Storage may be unavailable; the app sets the language once it loads.
+        }
+      })();
+    </script>
     <script type="module" src="/app.js"></script>
   </body>
 </html>

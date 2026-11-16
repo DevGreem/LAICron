@@ -29,7 +29,8 @@ GTK3/WebKit2 4.1 window ──HTTP──> daemon (systemd --user) ──> openco
 
 ## Features
 
-- Crons with an **AI prompt** (`opencode run --format json`) or a **shell command** (`sh -lc`).
+- Crons with an **AI prompt** (`opencode run --standalone --format json`) or a **shell command**
+  (`sh -lc`).
 - Form with **model, variant and agent** lists read from `opencode`, a time zone picker with the
   current time, and a field-based cron builder with a preview.
 - **Per-cron arguments**: positional in shell commands (`$1`, `$2`…) and extra ones before the
@@ -42,6 +43,7 @@ GTK3/WebKit2 4.1 window ──HTTP──> daemon (systemd --user) ──> openco
 - Desktop notifications through `notify-send`, optional per cron and filterable (always, failures
   only, or success only).
 - Run history per cron, plus the conversation (prompt and answer) for AI crons.
+- **Per-run usage**: cost in USD and input, output, reasoning and cache tokens, with totals per cron.
 - Optional continuous session: each run continues the previous `opencode` conversation.
 - Pause, resume and "run now" from the window.
 - Run queue with a maximum of two concurrent AI crons.
@@ -114,6 +116,18 @@ and a JSON body with `"status":"ok"`.
 > code 1; it does not print a fake success.
 
 ## Usage
+
+### Language
+
+The window, the API messages, the CLI and the desktop notifications are available in **Spanish
+(default)** and **English**.
+
+- **Window**: pick the language in the selector at the top right. The choice is remembered in the
+  browser's `localStorage`; you can also force it with `?lang=en` in the URL.
+- **CLI and daemon messages**: set `LAICRON_LANG=en` (or `es`). When it is unset, the usual
+  `LC_ALL`, `LC_MESSAGES` and `LANG` variables are read, and Spanish is the fallback.
+- **API**: the interface sends the `Accept-Language` header; validation errors and the rest of the
+  messages come back in the language of the request.
 
 ### Opening the window
 
@@ -210,7 +224,7 @@ To check the mechanism by hand:
 
 ```sh
 OPENCODE_CONFIG_CONTENT='{"mcp":{"servers":{"xerj":{"disabled":true}}}}' \
-  opencode run --format json "Say only: ok"
+  opencode run --standalone --format json "Say only: ok"
 ```
 
 And to see the effective configuration `opencode` would apply:
@@ -281,8 +295,86 @@ does not fail: it is recorded and the notice is marked as not delivered.
 
 ### History and conversation
 
-The cron detail view shows the runs (status, trigger, start, duration, exit code and error) and, for AI crons, the user and assistant messages. History is kept for 90 days and a maximum
+The cron detail view shows the runs (status, trigger, start, duration, tokens, cost, exit code and
+error) and, for AI crons, the user and assistant messages. History is kept for 90 days and a maximum
 of 200 runs per cron; the oldest ones are deleted.
+
+### Cron context
+
+Every `opencode (AI)` run receives a fixed instruction telling it that this is a scheduled task, that
+there will be no user reply, and that it must run and finish without greeting, asking for
+confirmation or offering help. It cannot be edited from the window:
+
+| What | Detail |
+| --- | --- |
+| File | `~/.local/share/laicron/prompts/cron-system.md` (or `$XDG_DATA_HOME/laicron/prompts/cron-system.md` if you set that variable) |
+| Content | Fixed text from the code; rewritten on every run if it does not match |
+| How it gets there | `OPENCODE_CONFIG_CONTENT` with `{"instructions":["<file path>"]}` |
+| In the chat | It does not appear: history only stores your prompt and the answer |
+
+If you edit the file by hand, the next run overwrites it. If LAICron cannot write it, the cron runs
+anyway, without the instruction, and the journal shows
+`[laicron] no se pudo preparar la instrucción de cron; se ejecuta sin ella`.
+
+The runner adds `--standalone` to `opencode run` on **every** run. `OPENCODE_CONFIG_CONTENT` is only
+applied with that flag: without it, `opencode` uses the shared service and the cron's inline
+configuration (the instruction and the MCP overlay) is ignored. The price is that every run starts a
+private `opencode` server: it takes a few seconds longer and uses a bit more RAM, with a maximum of 2
+concurrent AI runs. In exchange, crons stay isolated from the `opencode` you use yourself. The
+instruction and the MCP overlay are applied: pinned MCPs are sent with `disabled` set to `true` or
+`false` (see *MCPs*).
+
+### Usage
+
+Every AI run stores the cost in USD and the input, output, reasoning and cache tokens. They are read
+**after** the run with `opencode session export <session> --sanitize --standalone`; without
+`--standalone` the export queries the shared service and answers `Session not found`. If the export
+fails or hits the 10-second timeout per attempt (there is one retry), the run is still stored, without
+data and without being marked as failed.
+
+In the cron detail view:
+
+- the **Usage** card shows the total cost, the total tokens, the input and output breakdown and how
+  many runs have data (`3 de 5 ejecuciones con datos`);
+- the **Run history** table has the **Tokens** and **Cost** columns per run.
+
+Runs from before this version, `shell` runs and runs whose export could not be read show `—`, which
+means "no data", not "zero". A free model does show `$0.00` with its tokens. The cost is formatted
+with two decimals when zero, four for normal amounts and six below one cent.
+
+In **Continuous** mode, each run only counts the assistant messages created since it started, but the
+**input** tokens include the whole session history: the model re-reads the previous conversation on
+every run and you pay for it. The card reminds you with a note.
+
+Limitations:
+
+- the export grows with the session, so very long continuous sessions take longer to read;
+- if you continue that same session outside LAICron while the run is in progress, messages created
+  after the start are also added to the run's usage.
+
+Through the API:
+
+```sh
+curl -sS -H "Authorization: Bearer $TOKEN" "$BASE/api/jobs/<ID>/usage"
+```
+
+```json
+{
+  "usage": {
+    "runs": 5,
+    "runsWithUsage": 3,
+    "inputTokens": 16200,
+    "outputTokens": 2340,
+    "reasoningTokens": 0,
+    "cacheReadTokens": 0,
+    "cacheWriteTokens": 0,
+    "costUsd": 0.0421
+  }
+}
+```
+
+`runs` counts all of the cron's runs and `runsWithUsage` only those with some data; the totals add up
+only the runs with data.
 
 ## Data and security
 
@@ -301,11 +393,13 @@ of 200 runs per cron; the oldest ones are deleted.
 - Crons run **with your user and your permissions**, without a sandbox or extra privileges. A shell
   cron can do anything you can do in a terminal; an AI cron runs `opencode` with your configuration
   and your `opencode` permissions.
-- AI crons are launched with `opencode run --format json` without auto-approval flags; `opencode`
-  applies its own permission configuration.
+- AI crons are launched with `opencode run --standalone --format json` without auto-approval flags;
+  `opencode` applies its own permission configuration. `--standalone` starts a private server per run
+  and avoids depending on the shared service, which would ignore the cron's inline configuration.
 - The daemon passes its environment and the `PATH` captured at install time to the crons. There are no
-  per-cron environment variables: they all inherit the service environment. If `opencode` was not on
-  `PATH` at install time, AI crons will fail with
+  per-cron environment variables: they all inherit the service environment. LAICron adds
+  `OPENCODE_CONFIG_CONTENT` to every AI run with the cron instruction and the MCP overlay. If
+  `opencode` was not on `PATH` at install time, AI crons will fail with
   `opencode no está instalado o no está en el PATH`.
 - Do not expose `LAICRON_HOST` as `0.0.0.0` on a network you do not control: the API would still ask
   for a token, but it would no longer be local.
@@ -335,6 +429,7 @@ script).
 | `LAICRON_DB_PATH` | `$XDG_DATA_HOME/laicron/laicron.db` (or `~/.local/share/laicron/laicron.db`) | Database path |
 | `LAICRON_CONFIG_DIR` | `$XDG_CONFIG_HOME/laicron` (or `~/.config/laicron`) | Directory for the token and the `env` file |
 | `LAICRON_UI_ROOT` | `packages/ui/dist` inside the repo | Directory of the interface's static files |
+| `LAICRON_LANG` | From `LC_ALL`/`LC_MESSAGES`/`LANG`, else `es` | Language of the CLI, the daemon messages and the notifications (`es` or `en`) |
 
 The daemon started by systemd reads `~/.config/laicron/env`. To change, say, the port: add
 `LAICRON_PORT=7400` to that file, run `systemctl --user restart laicron` and export the same variable
@@ -374,7 +469,7 @@ shows the startup error; systemd retries every 3 seconds (`Restart=always`). If 
 installed, `scripts/install.sh` already checks the startup and shows the journal if it does not become
 active.
 
-### The window says "El planificador no responde"
+### The window says "The scheduler is not responding"
 
 The warning appears when the interface cannot confirm that the daemon is alive: the process is down
 or the last heartbeat is older than 60 seconds. Check:
@@ -391,8 +486,8 @@ laicron`.
 ### The window does not open
 
 - Check the daemon first (`systemctl --user status laicron`).
-- If `open` says `No se pudo abrir la ventana (¿está instalado python3?)`, `python3` is missing from
-  `PATH`.
+- If `open` says `Could not open the window (is python3 installed?)` (or the Spanish variant), `python3`
+  is missing from `PATH`.
 - If `python3` exists but the window does not appear, GTK3 or WebKit2 (4.1, with 4.0 as an
   alternative) is missing. `open` launches the launcher with its output silenced, so the error is not
   visible; check it by hand:
@@ -445,6 +540,24 @@ The form keeps the states already saved and **Reload options** retries the read.
 when the cron runs, the run continues with `opencode`'s inherited configuration, is not marked as
 failed and the journal shows `[laicron] no se pudo leer la lista de MCPs; se usa la configuración
 heredada`.
+
+### Usage shows `—`
+
+It means that run has no usage data, not that it spent zero. It happens in:
+
+- runs stored before usage tracking existed;
+- `shell` crons, which do not go through `opencode`;
+- runs whose `opencode session export <session> --sanitize --standalone` failed or hit the 10-second
+  timeout.
+
+Check the export by hand with a recent session (the identifier is in `session_id`, in the
+`GET /api/jobs/<ID>/runs` response):
+
+```sh
+opencode session export "<session>" --sanitize --standalone | head -c 400
+```
+
+If it always fails, check the `opencode` version and that the session still exists.
 
 ### Notifications do not arrive
 

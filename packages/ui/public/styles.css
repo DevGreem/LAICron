@@ -103,6 +103,20 @@ a:hover {
   font-size: 0.9rem;
 }
 
+.topbar-actions {
+  margin-left: auto;
+}
+
+.language-select {
+  background: var(--surface);
+  color: var(--text);
+  border: 1px solid var(--border);
+  border-radius: 6px;
+  padding: 4px 8px;
+  font-size: 0.85rem;
+  cursor: pointer;
+}
+
 .banner {
   position: sticky;
   top: 0;
@@ -632,6 +646,71 @@ textarea {
   white-space: pre-wrap;
 }
 
+/* Usage card */
+
+.usage-card {
+  padding: 18px 20px;
+  border: 1px solid var(--border);
+  border-radius: 10px;
+  background: var(--surface);
+}
+
+.usage-grid {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: flex-end;
+  gap: 10px 32px;
+}
+
+.usage-metric {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+}
+
+.usage-label {
+  color: var(--muted);
+  font-size: 0.76rem;
+  font-weight: 600;
+  letter-spacing: 0.05em;
+  text-transform: uppercase;
+}
+
+.usage-cost,
+.usage-tokens {
+  font-size: 1.5rem;
+  font-weight: 700;
+  line-height: 1.2;
+  white-space: nowrap;
+}
+
+.usage-breakdown {
+  color: var(--muted);
+  font-size: 0.85rem;
+}
+
+.usage-runs {
+  margin: 10px 0 0;
+  color: var(--muted);
+  font-size: 0.85rem;
+}
+
+.usage-note {
+  margin: 8px 0 0;
+  color: var(--muted);
+  font-size: 0.8rem;
+  font-style: italic;
+}
+
+.usage-empty {
+  margin: 0;
+  color: var(--muted);
+}
+
+.usage-cell {
+  white-space: nowrap;
+}
+
 /* Chat */
 
 .chat {
@@ -779,6 +858,19 @@ textarea {
 
   .details dd {
     margin-bottom: 8px;
+  }
+
+  .usage-card {
+    padding: 14px 16px;
+  }
+
+  .usage-grid {
+    gap: 10px 20px;
+  }
+
+  .usage-cost,
+  .usage-tokens {
+    font-size: 1.3rem;
   }
 
   .message {

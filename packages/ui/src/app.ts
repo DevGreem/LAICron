@@ -2,6 +2,7 @@ import { ApiClient } from "./api.js";
 import type { AppContext, View } from "./context.js";
 import { h } from "./dom.js";
 import { connectEvents } from "./events.js";
+import { getLocale, initLocale, LOCALES, setLocale, t } from "./i18n.js";
 import { startHealthMonitor } from "./health.js";
 import { parseRoute, type Route } from "./router.js";
 import { captureToken } from "./token.js";
@@ -75,17 +76,39 @@ class App implements AppContext {
     this.api = api;
     this.banner = h("div", {
       class: "banner",
-      text: "El planificador no responde",
+      text: t("app.offline"),
       attrs: { hidden: true, role: "status" },
     });
     this.viewContainer = h("main", { class: "main" });
     this.toasts = h("div", { class: "toasts", attrs: { "aria-live": "polite" } });
 
+    const languageSelect = h(
+      "select",
+      { class: "language-select", attrs: { id: "app-language", "aria-label": t("app.language") } },
+      ...LOCALES.map((locale) =>
+        h("option", {
+          text: locale === "es" ? "Español" : "English",
+          attrs: { value: locale },
+        }),
+      ),
+    );
+    languageSelect.value = getLocale();
+    languageSelect.addEventListener("change", () => {
+      setLocale(languageSelect.value === "en" ? "en" : "es");
+      // Drop a stale ?lang= from the URL so it cannot override the choice.
+      const url = new URL(window.location.href);
+      url.searchParams.delete("lang");
+      window.history.replaceState(null, "", url);
+      // A full reload rebuilds every label with the new locale.
+      window.location.reload();
+    });
+
     const header = h(
       "header",
       { class: "topbar" },
       h("a", { class: "brand", text: appName, attrs: { href: "#/" } }),
-      h("span", { class: "tagline", text: "Planificador local de tareas" }),
+      h("span", { class: "tagline", text: t("app.tagline") }),
+      h("div", { class: "topbar-actions" }, languageSelect),
     );
 
     root.replaceChildren(this.banner, header, this.viewContainer, this.toasts);
@@ -226,9 +249,9 @@ class App implements AppContext {
   private notFoundView(): HTMLElement {
     const element = h("section", { class: "view" });
     element.append(
-      pageHeader("Página no encontrada", null),
-      h("p", { class: "muted", text: "La dirección no corresponde a ninguna vista de LAICron." }),
-      h("a", { class: "btn", text: "Volver a la lista", attrs: { href: "#/" } }),
+      pageHeader(t("app.notFoundTitle"), null),
+      h("p", { class: "muted", text: t("app.notFoundBody") }),
+      h("a", { class: "btn", text: t("app.backToList"), attrs: { href: "#/" } }),
     );
     return element;
   }
@@ -242,7 +265,7 @@ function renderTokenError(root: HTMLElement): void {
       h("h1", { text: appName }),
       h("p", {
         class: "error-screen-message",
-        text: "Falta el token de acceso. Abre LAICron desde el menú.",
+        text: t("app.tokenMissing"),
       }),
     ),
   );
@@ -254,6 +277,7 @@ function bootstrap(): void {
     return;
   }
 
+  initLocale();
   const token = captureToken();
   if (token === null) {
     renderTokenError(root);

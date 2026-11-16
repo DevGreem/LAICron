@@ -2,6 +2,7 @@ import { CronExpressionParser } from "cron-parser";
 
 import type { CronSpec } from "./expressions.js";
 import { ScheduleError } from "./errors.js";
+import { t } from "../i18n.js";
 import { findGapAroundLocalDate, formatLocalWallClock, localWallClockParts } from "./wall-clock.js";
 
 const HOUR_MS = 3_600_000;
@@ -19,7 +20,7 @@ export function rawNextCron(spec: CronSpec, timezone: string, fromMs: number): n
   } catch {
     throw new ScheduleError(
       "scheduleExpr",
-      `La expresión cron "${spec.expression}" no tiene una próxima ejecución válida.`,
+      t("schedule.nextRunInvalid", { expression: spec.expression }),
     );
   }
 }

@@ -56,6 +56,24 @@ export interface Run {
   sessionId: string | null;
   missedCount: number;
   notificationDelivered: boolean | null;
+  inputTokens: number | null;
+  outputTokens: number | null;
+  reasoningTokens: number | null;
+  cacheReadTokens: number | null;
+  cacheWriteTokens: number | null;
+  costUsd: number | null;
+}
+
+/** Aggregated token and cost usage across every run of a job. */
+export interface JobUsage {
+  runs: number;
+  runsWithUsage: number;
+  inputTokens: number;
+  outputTokens: number;
+  reasoningTokens: number;
+  cacheReadTokens: number;
+  cacheWriteTokens: number;
+  costUsd: number;
 }
 
 export interface Message {

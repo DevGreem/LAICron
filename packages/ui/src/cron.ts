@@ -1,3 +1,6 @@
+import { t } from "./i18n.js";
+import type { MessageKey } from "./i18n.js";
+
 export interface CronFields {
   minute: string;
   hour: string;
@@ -8,38 +11,48 @@ export interface CronFields {
 
 export interface CronPreset {
   id: string;
-  label: string;
+  readonly label: string;
   expr: string;
 }
 
+function preset(id: string, labelKey: MessageKey, expr: string): CronPreset {
+  return {
+    id,
+    get label(): string {
+      return t(labelKey);
+    },
+    expr,
+  };
+}
+
 export const CRON_PRESETS: CronPreset[] = [
-  { id: "daily-9", label: "Cada día a las 09:00", expr: "0 9 * * *" },
-  { id: "weekdays-9", label: "De lunes a viernes a las 09:00", expr: "0 9 * * 1-5" },
-  { id: "monday-8", label: "Cada lunes a las 08:00", expr: "0 8 * * 1" },
-  { id: "hourly", label: "Cada hora en punto", expr: "0 * * * *" },
-  { id: "every-15", label: "Cada 15 minutos", expr: "*/15 * * * *" },
-  { id: "monthly-1", label: "El primer día del mes a las 00:00", expr: "0 0 1 * *" },
+  preset("daily-9", "cron.preset.daily9", "0 9 * * *"),
+  preset("weekdays-9", "cron.preset.weekdays9", "0 9 * * 1-5"),
+  preset("monday-8", "cron.preset.monday8", "0 8 * * 1"),
+  preset("hourly", "cron.preset.hourly", "0 * * * *"),
+  preset("every-15", "cron.preset.every15", "*/15 * * * *"),
+  preset("monthly-1", "cron.preset.monthly1", "0 0 1 * *"),
 ];
 
-const DAY_NAMES = [
-  "domingo",
-  "lunes",
-  "martes",
-  "miércoles",
-  "jueves",
-  "viernes",
-  "sábado",
-] as const;
+const DAY_NAMES: readonly MessageKey[] = [
+  "cron.day.0",
+  "cron.day.1",
+  "cron.day.2",
+  "cron.day.3",
+  "cron.day.4",
+  "cron.day.5",
+  "cron.day.6",
+];
 
-const DAY_PLURALS = [
-  "domingos",
-  "lunes",
-  "martes",
-  "miércoles",
-  "jueves",
-  "viernes",
-  "sábados",
-] as const;
+const DAY_PLURALS: readonly MessageKey[] = [
+  "cron.days.0",
+  "cron.days.1",
+  "cron.days.2",
+  "cron.days.3",
+  "cron.days.4",
+  "cron.days.5",
+  "cron.days.6",
+];
 
 /** Splits a five-field cron expression; returns null when it cannot be split. */
 export function parseCron(expr: string): CronFields | null {
@@ -90,7 +103,7 @@ function pad2(value: number): string {
 }
 
 /**
- * Builds a short Spanish description of the five fields.
+ * Builds a short description of the five fields in the current locale.
  * It never throws: unknown shapes fall back to the raw expression.
  */
 export function describeCron(fields: CronFields): string {
@@ -109,14 +122,14 @@ export function describeCron(fields: CronFields): string {
       month === "*" &&
       dayOfWeek === "*"
     ) {
-      return "cada minuto";
+      return t("cron.everyMinute");
     }
 
     const step = /^\*\/(\d{1,2})$/.exec(minute);
     if (step !== null && hour === "*") {
       const amount = Number(step[1]);
       if (amount >= 1 && amount <= 59) {
-        return amount === 1 ? "cada minuto" : `cada ${amount} minutos`;
+        return amount === 1 ? t("cron.everyMinute") : t("cron.everyNMinutes", { amount });
       }
     }
 
@@ -126,29 +139,29 @@ export function describeCron(fields: CronFields): string {
       const time = `${pad2(hourNumber)}:${pad2(minuteNumber)}`;
 
       if (dayOfWeek === "*") {
-        return `todos los días a las ${time}`;
+        return t("cron.everyDayAt", { time });
       }
 
       const range = /^([0-6])-([0-6])$/.exec(dayOfWeek);
       if (range !== null) {
-        const start = DAY_NAMES[Number(range[1])];
-        const end = DAY_NAMES[Number(range[2])];
-        if (start !== undefined && end !== undefined) {
-          return `de ${start} a ${end} a las ${time}`;
+        const startKey = DAY_NAMES[Number(range[1])];
+        const endKey = DAY_NAMES[Number(range[2])];
+        if (startKey !== undefined && endKey !== undefined) {
+          return t("cron.fromToAt", { from: t(startKey), to: t(endKey), time });
         }
       }
 
       const single = /^[0-6]$/.exec(dayOfWeek);
       if (single !== null) {
-        const day = DAY_PLURALS[Number(single[0])];
-        if (day !== undefined) {
-          return `todos los ${day} a las ${time}`;
+        const dayKey = DAY_PLURALS[Number(single[0])];
+        if (dayKey !== undefined) {
+          return t("cron.everyDayOfWeekAt", { day: t(dayKey), time });
         }
       }
     }
 
-    return `expresión cron ${expr}`.trim();
+    return t("cron.expression", { expr }).trim();
   } catch {
-    return "expresión cron no válida";
+    return t("cron.invalidExpression");
   }
 }

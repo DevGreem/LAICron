@@ -2,6 +2,7 @@ import { messageFromError } from "../api.js";
 import type { AppContext, View } from "../context.js";
 import { button, h } from "../dom.js";
 import { formatDateTime, scheduleSummary } from "../format.js";
+import { t } from "../i18n.js";
 import type { Job } from "../types.js";
 import { emptyPanel, errorPanel, loadingView, pageHeader, statusBadge } from "./common.js";
 
@@ -15,9 +16,9 @@ export function createListView(ctx: AppContext): View {
 
   function header(): HTMLElement {
     return pageHeader(
-      "Crons",
-      "Tareas programadas de este equipo",
-      h("a", { class: "btn btn-primary", text: "Crear cron", attrs: { href: "#/new" } }),
+      t("list.title"),
+      t("list.subtitle"),
+      h("a", { class: "btn btn-primary", text: t("list.create"), attrs: { href: "#/new" } }),
     );
   }
 
@@ -36,15 +37,15 @@ export function createListView(ctx: AppContext): View {
     const detailHref = `#/jobs/${encodeURIComponent(job.id)}`;
 
     const toggleButton = button(
-      job.enabled ? "Pausar" : "Reanudar",
+      job.enabled ? t("list.pause") : t("list.resume"),
       () => {
         void perform(toggleButton, async () => {
           if (job.enabled) {
             await ctx.api.pauseJob(job.id);
-            ctx.notify(`Cron «${job.name}» pausado.`, "success");
+            ctx.notify(t("list.pausedToast", { name: job.name }), "success");
           } else {
             await ctx.api.resumeJob(job.id);
-            ctx.notify(`Cron «${job.name}» reanudado.`, "success");
+            ctx.notify(t("list.resumedToast", { name: job.name }), "success");
           }
           await refresh();
         });
@@ -53,11 +54,11 @@ export function createListView(ctx: AppContext): View {
     );
 
     const runButton = button(
-      "Ejecutar ahora",
+      t("list.runNow"),
       () => {
         void perform(runButton, async () => {
           await ctx.api.runJob(job.id);
-          ctx.notify(`Ejecución de «${job.name}» iniciada.`, "success");
+          ctx.notify(t("list.startedToast", { name: job.name }), "success");
           await refresh();
         });
       },
@@ -65,17 +66,15 @@ export function createListView(ctx: AppContext): View {
     );
 
     const deleteButton = button(
-      "Borrar",
+      t("list.delete"),
       () => {
-        const confirmed = window.confirm(
-          `¿Borrar el cron «${job.name}»? Esta acción no se puede deshacer.`,
-        );
+        const confirmed = window.confirm(t("list.confirmDelete", { name: job.name }));
         if (!confirmed) {
           return;
         }
         void perform(deleteButton, async () => {
           await ctx.api.deleteJob(job.id);
-          ctx.notify(`Cron «${job.name}» borrado.`, "success");
+          ctx.notify(t("list.deletedToast", { name: job.name }), "success");
           await refresh();
         });
       },
@@ -96,7 +95,7 @@ export function createListView(ctx: AppContext): View {
             "div",
             { class: "job-meta" },
             h("span", { class: "tag", text: job.runner }),
-            job.enabled ? null : h("span", { class: "tag tag-paused", text: "En pausa" }),
+            job.enabled ? null : h("span", { class: "tag tag-paused", text: t("common.paused") }),
           ),
         ),
       ),
@@ -109,7 +108,11 @@ export function createListView(ctx: AppContext): View {
         h(
           "div",
           { class: "row-actions" },
-          h("a", { class: "btn btn-ghost btn-sm", text: "Detalle", attrs: { href: detailHref } }),
+          h("a", {
+            class: "btn btn-ghost btn-sm",
+            text: t("list.detail"),
+            attrs: { href: detailHref },
+          }),
           runButton,
           toggleButton,
           deleteButton,
@@ -121,10 +124,7 @@ export function createListView(ctx: AppContext): View {
   function render(jobs: Job[]): void {
     hasData = true;
     if (jobs.length === 0) {
-      content.replaceChildren(
-        header(),
-        emptyPanel("Todavía no hay crons. Crea el primero con «Crear cron»."),
-      );
+      content.replaceChildren(header(), emptyPanel(t("list.empty")));
       return;
     }
 
@@ -140,11 +140,11 @@ export function createListView(ctx: AppContext): View {
           h(
             "tr",
             {},
-            h("th", { text: "Nombre", attrs: { scope: "col" } }),
-            h("th", { text: "Programación", attrs: { scope: "col" } }),
-            h("th", { text: "Próxima ejecución", attrs: { scope: "col" } }),
-            h("th", { text: "Último estado", attrs: { scope: "col" } }),
-            h("th", { class: "col-actions", text: "Acciones", attrs: { scope: "col" } }),
+            h("th", { text: t("list.colName"), attrs: { scope: "col" } }),
+            h("th", { text: t("list.colSchedule"), attrs: { scope: "col" } }),
+            h("th", { text: t("list.colNextRun"), attrs: { scope: "col" } }),
+            h("th", { text: t("list.colLastStatus"), attrs: { scope: "col" } }),
+            h("th", { class: "col-actions", text: t("list.colActions"), attrs: { scope: "col" } }),
           ),
         ),
         h("tbody", {}, ...jobs.map((job) => createRow(job))),

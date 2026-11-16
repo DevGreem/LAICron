@@ -13,6 +13,7 @@ import {
   selectControl,
   setFieldError,
 } from "../dom.js";
+import { t } from "../i18n.js";
 import { buildOverrides, effectiveState, mergeMcpRows } from "../mcp-state.js";
 import type { McpChoice, McpRow } from "../mcp-state.js";
 import { composeModelValue, splitModelValue } from "../model-value.js";
@@ -152,15 +153,15 @@ function mcpDefaultLabel(enabled: boolean | null): string {
   if (enabled === null) {
     return "—";
   }
-  return enabled ? "Encendido" : "Apagado";
+  return enabled ? t("form.mcpOn") : t("form.mcpOff");
 }
 
 function mcpChoiceLabel(state: McpChoice): string {
   if (state === "on") {
-    return "Encendido";
+    return t("form.mcpOn");
   }
   if (state === "off") {
-    return "Apagado";
+    return t("form.mcpOff");
   }
   return "—";
 }
@@ -179,11 +180,11 @@ export function createFormView(ctx: AppContext, jobId: string | null): View {
 
   function renderLoadError(error: unknown): void {
     content.replaceChildren(
-      pageHeader("Editar cron", null),
+      pageHeader(t("form.titleEdit"), null),
       errorPanel(messageFromError(error), () => {
         void load();
       }),
-      h("a", { class: "btn", text: "Volver a la lista", attrs: { href: "#/" } }),
+      h("a", { class: "btn", text: t("app.backToList"), attrs: { href: "#/" } }),
     );
   }
 
@@ -193,7 +194,7 @@ export function createFormView(ctx: AppContext, jobId: string | null): View {
       return;
     }
 
-    content.replaceChildren(pageHeader("Editar cron", null), loadingView());
+    content.replaceChildren(pageHeader(t("form.titleEdit"), null), loadingView());
     try {
       const job = await ctx.api.getJob(jobId);
       if (disposed) {
@@ -237,8 +238,8 @@ export function createFormView(ctx: AppContext, jobId: string | null): View {
       "job-runner",
       "runner",
       [
-        { value: "opencode", label: "opencode (IA)" },
-        { value: "shell", label: "shell (comando)" },
+        { value: "opencode", label: t("format.runner.opencode") },
+        { value: "shell", label: t("format.runner.shell") },
       ],
       job?.runner ?? "opencode",
     );
@@ -251,7 +252,7 @@ export function createFormView(ctx: AppContext, jobId: string | null): View {
     const modelSelect = selectControl(
       "job-model",
       "model",
-      [{ value: "", label: "Cargando…" }],
+      [{ value: "", label: t("form.loadingOptions") }],
       "",
     );
     modelSelect.disabled = true;
@@ -261,7 +262,7 @@ export function createFormView(ctx: AppContext, jobId: string | null): View {
         id: "job-model-custom",
         name: "model",
         type: "text",
-        placeholder: "proveedor/modelo#variante",
+        placeholder: "provider/model#variant",
         autocomplete: "off",
       },
     });
@@ -270,7 +271,7 @@ export function createFormView(ctx: AppContext, jobId: string | null): View {
     const modelVariantSelect = selectControl(
       "job-model-variant",
       "modelVariant",
-      [{ value: "", label: "Cargando…" }],
+      [{ value: "", label: t("form.loadingOptions") }],
       "",
     );
     modelVariantSelect.disabled = true;
@@ -278,7 +279,7 @@ export function createFormView(ctx: AppContext, jobId: string | null): View {
     const agentSelect = selectControl(
       "job-agent",
       "agent",
-      [{ value: "", label: "Cargando…" }],
+      [{ value: "", label: t("form.loadingOptions") }],
       "",
     );
     agentSelect.disabled = true;
@@ -296,7 +297,7 @@ export function createFormView(ctx: AppContext, jobId: string | null): View {
     const mcpLegend = h("p", {
       class: "field-hint",
       attrs: { id: "job-mcps-legend" },
-      text: "Heredado sigue tu configuración de opencode; Encendido/Apagado fija ese valor para este cron y no cambia aunque modifiques la configuración.",
+      text: t("form.mcpLegend"),
     });
 
     const mcpNotice = h("p", {
@@ -315,10 +316,10 @@ export function createFormView(ctx: AppContext, jobId: string | null): View {
         h(
           "tr",
           {},
-          h("th", { text: "MCP" }),
-          h("th", { text: "Por defecto" }),
-          h("th", { text: "Estado" }),
-          h("th", { text: "Efectivo" }),
+          h("th", { text: t("form.mcpName") }),
+          h("th", { text: t("form.mcpDefault") }),
+          h("th", { text: t("form.mcpState") }),
+          h("th", { text: t("form.mcpEffective") }),
         ),
       ),
       mcpTableBody,
@@ -335,7 +336,7 @@ export function createFormView(ctx: AppContext, jobId: string | null): View {
     const mcpsSection = h(
       "section",
       { class: "form-section", attrs: { id: "job-mcps-section" } },
-      h("h2", { class: "form-section-title", text: "MCPs" }),
+      h("h2", { class: "form-section-title", text: t("form.mcpTitle") }),
       mcpsContainer,
     );
 
@@ -344,7 +345,7 @@ export function createFormView(ctx: AppContext, jobId: string | null): View {
       attrs: { id: "job-options-notice", hidden: true, role: "status" },
     });
 
-    const optionsRefreshButton = button("Recargar opciones", () => {
+    const optionsRefreshButton = button(t("form.reloadOptions"), () => {
       void loadOptions(true);
     });
     optionsRefreshButton.id = "job-options-refresh";
@@ -354,7 +355,7 @@ export function createFormView(ctx: AppContext, jobId: string | null): View {
         id: "job-command",
         name: "command",
         type: "text",
-        placeholder: "echo hola",
+        placeholder: "echo hello",
         autocomplete: "off",
       },
     });
@@ -365,7 +366,7 @@ export function createFormView(ctx: AppContext, jobId: string | null): View {
         id: "job-cwd",
         name: "cwd",
         type: "text",
-        placeholder: "/home/usuario",
+        placeholder: "/home/user",
         autocomplete: "off",
       },
     });
@@ -373,7 +374,7 @@ export function createFormView(ctx: AppContext, jobId: string | null): View {
 
     // The hint depends on the runner, so it is filled by updateRunnerFields.
     const cwdHint = h("p", { class: "field-hint" });
-    const cwdField = field("Directorio de trabajo", cwdInput);
+    const cwdField = field(t("form.cwd"), cwdInput);
     cwdField.appendChild(cwdHint);
     cwdField.appendChild(errorSlot("cwd"));
 
@@ -386,9 +387,9 @@ export function createFormView(ctx: AppContext, jobId: string | null): View {
       "job-schedule-kind",
       "scheduleKind",
       [
-        { value: "cron", label: "Cron" },
-        { value: "interval", label: "Intervalo" },
-        { value: "once", label: "Una vez" },
+        { value: "cron", label: t("format.kind.cron") },
+        { value: "interval", label: t("format.kind.interval") },
+        { value: "once", label: t("format.kind.once") },
       ],
       job?.scheduleKind ?? "cron",
     );
@@ -397,7 +398,7 @@ export function createFormView(ctx: AppContext, jobId: string | null): View {
       "job-cron-preset",
       "cronPreset",
       [
-        { value: "__custom__", label: "Personalizado…" },
+        { value: "__custom__", label: t("form.custom") },
         ...CRON_PRESETS.map((preset) => ({ value: preset.id, label: preset.label })),
       ],
       initialCron.preset,
@@ -470,8 +471,8 @@ export function createFormView(ctx: AppContext, jobId: string | null): View {
     });
     cronAdvancedInput.checked = initialCron.advanced;
 
-    const cronAdvancedField = checkboxField("Modo avanzado", cronAdvancedInput, {
-      hint: "Escribe la expresión completa a mano.",
+    const cronAdvancedField = checkboxField(t("form.advanced"), cronAdvancedInput, {
+      hint: t("form.advancedHint"),
     });
     cronAdvancedField.classList.add("field-full");
 
@@ -486,9 +487,9 @@ export function createFormView(ctx: AppContext, jobId: string | null): View {
     });
     cronRawInput.value = initialCron.raw;
 
-    const cronRawField = field("Expresión cron", cronRawInput, {
+    const cronRawField = field(t("form.cronExpression"), cronRawInput, {
       full: true,
-      hint: "Cinco campos: minuto, hora, día, mes y día de la semana.",
+      hint: t("form.cronExpressionHint"),
     });
 
     const intervalValueInput = h("input", {
@@ -506,8 +507,8 @@ export function createFormView(ctx: AppContext, jobId: string | null): View {
       "job-interval-unit",
       "intervalUnit",
       [
-        { value: "m", label: "minutos" },
-        { value: "h", label: "horas" },
+        { value: "m", label: t("form.minutes") },
+        { value: "h", label: t("form.hours") },
       ],
       initialInterval.unit,
     );
@@ -534,9 +535,9 @@ export function createFormView(ctx: AppContext, jobId: string | null): View {
       attrs: { id: "job-timezone-info" },
     });
 
-    const timezoneField = formField("Zona horaria", timezoneInput, {
+    const timezoneField = formField(t("form.timezone"), timezoneInput, {
       field: "timezone",
-      hint: "Nombre IANA, por ejemplo Europe/Madrid.",
+      hint: t("form.timezoneHint"),
     });
     timezoneField.appendChild(timezoneInfoElement);
 
@@ -544,9 +545,9 @@ export function createFormView(ctx: AppContext, jobId: string | null): View {
       "job-catchup",
       "catchUp",
       [
-        { value: "none", label: "Ninguna" },
-        { value: "once", label: "Una vez" },
-        { value: "all", label: "Todas" },
+        { value: "none", label: t("format.catchup.none") },
+        { value: "once", label: t("format.catchup.once") },
+        { value: "all", label: t("format.catchup.all") },
       ],
       job?.catchUp ?? "once",
     );
@@ -567,9 +568,9 @@ export function createFormView(ctx: AppContext, jobId: string | null): View {
       "job-overlap",
       "overlap",
       [
-        { value: "skip", label: "Omitir la nueva" },
-        { value: "queue", label: "Encolar la nueva" },
-        { value: "kill", label: "Terminar la anterior" },
+        { value: "skip", label: t("format.overlap.skip") },
+        { value: "queue", label: t("format.overlap.queue") },
+        { value: "kill", label: t("format.overlap.kill") },
       ],
       job?.overlap ?? "skip",
     );
@@ -590,8 +591,8 @@ export function createFormView(ctx: AppContext, jobId: string | null): View {
       "job-session-mode",
       "sessionMode",
       [
-        { value: "independent", label: "Independiente" },
-        { value: "continuous", label: "Continua" },
+        { value: "independent", label: t("format.session.independent") },
+        { value: "continuous", label: t("format.session.continuous") },
       ],
       job?.sessionMode ?? "independent",
     );
@@ -601,7 +602,7 @@ export function createFormView(ctx: AppContext, jobId: string | null): View {
         id: "job-session-id",
         name: "sessionId",
         type: "text",
-        placeholder: "Automático",
+        placeholder: "Automatic",
         autocomplete: "off",
       },
     });
@@ -616,9 +617,9 @@ export function createFormView(ctx: AppContext, jobId: string | null): View {
       "job-notify-on",
       "notifyOn",
       [
-        { value: "always", label: "Siempre" },
-        { value: "failure", label: "Solo si falla" },
-        { value: "success", label: "Solo si va bien" },
+        { value: "always", label: t("format.notify.always") },
+        { value: "failure", label: t("format.notify.failure") },
+        { value: "success", label: t("format.notify.success") },
       ],
       job?.notifyOn ?? "always",
     );
@@ -628,29 +629,29 @@ export function createFormView(ctx: AppContext, jobId: string | null): View {
     const agentError = errorSlot("agent");
     agentError.classList.add("field-full");
 
-    const modelField = field("Modelo", modelSelect, {
-      hint: "Modelo del catálogo de opencode.",
+    const modelField = field(t("form.model"), modelSelect, {
+      hint: t("form.modelHint"),
     });
-    const modelCustomField = field("Modelo personalizado", modelCustomInput, {
-      hint: "Formato proveedor/modelo#variante. Se usa si el catálogo no está disponible.",
+    const modelCustomField = field(t("form.modelCustom"), modelCustomInput, {
+      hint: t("form.modelCustomHint"),
     });
-    const variantField = field("Variante", modelVariantSelect, {
-      hint: "Variante del modelo elegido.",
+    const variantField = field(t("form.variant"), modelVariantSelect, {
+      hint: t("form.variantHint"),
     });
-    const agentField = field("Agente", agentSelect, {
-      hint: "Agente primario del catálogo de opencode.",
+    const agentField = field(t("form.agent"), agentSelect, {
+      hint: t("form.agentHint"),
     });
-    const agentCustomField = field("Agente personalizado", agentCustomInput, {
-      hint: "Se usa si el catálogo no está disponible.",
+    const agentCustomField = field(t("form.agentCustom"), agentCustomInput, {
+      hint: t("form.agentCustomHint"),
     });
 
     const opencodeFields = h(
       "div",
       { class: "form-grid" },
-      formField("Prompt", promptInput, {
+      formField(t("form.prompt"), promptInput, {
         field: "prompt",
         full: true,
-        hint: "Texto que se envía a opencode en cada ejecución.",
+        hint: t("form.promptHint"),
       }),
       modelField,
       modelCustomField,
@@ -666,28 +667,28 @@ export function createFormView(ctx: AppContext, jobId: string | null): View {
     const shellFields = h(
       "div",
       { class: "form-grid" },
-      formField("Comando", commandInput, {
+      formField(t("form.command"), commandInput, {
         field: "command",
         full: true,
-        hint: "Se ejecuta con sh -lc.",
+        hint: t("form.commandHint"),
       }),
     );
 
     const cronGroup = h(
       "div",
       { class: "form-grid" },
-      field("Plantilla", cronPresetSelect, {
+      field(t("form.preset"), cronPresetSelect, {
         full: true,
-        hint: "Rellena los cinco campos con una programación habitual.",
+        hint: t("form.presetHint"),
       }),
       h(
         "div",
         { class: "cron-grid field-full" },
-        field("Minuto", cronMinuteInput),
-        field("Hora", cronHourInput),
-        field("Día del mes", cronDayOfMonthInput),
-        field("Mes", cronMonthInput),
-        field("Día de la semana", cronDayOfWeekInput),
+        field(t("form.minute"), cronMinuteInput),
+        field(t("form.hour"), cronHourInput),
+        field(t("form.dayOfMonth"), cronDayOfMonthInput),
+        field(t("form.month"), cronMonthInput),
+        field(t("form.dayOfWeek"), cronDayOfWeekInput),
       ),
       cronPreview,
       cronAdvancedField,
@@ -702,15 +703,15 @@ export function createFormView(ctx: AppContext, jobId: string | null): View {
     const intervalGroup = h(
       "div",
       { class: "form-grid" },
-      field("Cada", intervalValueInput, {}),
-      field("Unidad", intervalUnitSelect, {}),
+      field(t("form.every"), intervalValueInput, {}),
+      field(t("form.unit"), intervalUnitSelect, {}),
     );
     const onceGroup = h(
       "div",
       { class: "form-grid" },
-      field("Fecha y hora", onceInput, {
+      field(t("form.onceAt"), onceInput, {
         full: true,
-        hint: "Se interpreta en la zona horaria local y se guarda en UTC.",
+        hint: t("form.onceHint"),
       }),
     );
 
@@ -719,11 +720,11 @@ export function createFormView(ctx: AppContext, jobId: string | null): View {
       attrs: { hidden: true, role: "alert" },
     });
 
-    const submitButton = button("Guardar", undefined, { variant: "primary", type: "submit" });
+    const submitButton = button(t("form.save"), undefined, { variant: "primary", type: "submit" });
     const cancelHref = isEdit && job !== null ? `#/jobs/${encodeURIComponent(job.id)}` : "#/";
     const cancelLink = h("a", {
       class: "btn btn-ghost",
-      text: "Cancelar",
+      text: t("form.cancel"),
       attrs: { href: cancelHref },
     });
 
@@ -734,20 +735,20 @@ export function createFormView(ctx: AppContext, jobId: string | null): View {
       h(
         "section",
         { class: "form-section" },
-        h("h2", { class: "form-section-title", text: "Básico" }),
+        h("h2", { class: "form-section-title", text: t("form.sectionBasic") }),
         h(
           "div",
           { class: "form-grid" },
-          formField("Nombre", nameInput, { field: "name", full: true }),
-          checkboxField("Activo", enabledInput, { field: "enabled" }),
-          formField("Ejecutor", runnerSelect, { field: "runner" }),
+          formField(t("form.name"), nameInput, { field: "name", full: true }),
+          checkboxField(t("form.active"), enabledInput, { field: "enabled" }),
+          formField(t("form.runner"), runnerSelect, { field: "runner" }),
           cwdField,
         ),
       ),
       h(
         "section",
         { class: "form-section" },
-        h("h2", { class: "form-section-title", text: "Configuración del ejecutor" }),
+        h("h2", { class: "form-section-title", text: t("form.sectionRunner") }),
         opencodeFields,
         shellFields,
       ),
@@ -755,11 +756,11 @@ export function createFormView(ctx: AppContext, jobId: string | null): View {
       h(
         "section",
         { class: "form-section" },
-        h("h2", { class: "form-section-title", text: "Programación" }),
+        h("h2", { class: "form-section-title", text: t("form.sectionSchedule") }),
         h(
           "div",
           { class: "form-grid" },
-          formField("Repetición", scheduleKindSelect, { field: "scheduleKind" }),
+          formField(t("form.scheduleKind"), scheduleKindSelect, { field: "scheduleKind" }),
           timezoneField,
         ),
         timezoneDatalist,
@@ -769,41 +770,41 @@ export function createFormView(ctx: AppContext, jobId: string | null): View {
       h(
         "section",
         { class: "form-section" },
-        h("h2", { class: "form-section-title", text: "Ejecución" }),
+        h("h2", { class: "form-section-title", text: t("form.sectionRun") }),
         h(
           "div",
           { class: "form-grid" },
-          formField("Si el equipo estuvo apagado", catchUpSelect, { field: "catchUp" }),
-          formField("Límite de recuperación", catchUpLimitInput, {
+          formField(t("form.catchUp"), catchUpSelect, { field: "catchUp" }),
+          formField(t("form.catchUpLimit"), catchUpLimitInput, {
             field: "catchUpLimit",
-            hint: "Entre 1 y 100 ejecuciones.",
+            hint: t("form.catchUpLimitHint"),
           }),
-          formField("Si ya hay una ejecución en curso", overlapSelect, { field: "overlap" }),
-          formField("Tiempo máximo (segundos)", timeoutInput, {
+          formField(t("form.overlap"), overlapSelect, { field: "overlap" }),
+          formField(t("form.timeout"), timeoutInput, {
             field: "timeoutSec",
-            hint: "Entre 1 y 86400.",
+            hint: t("form.timeoutHint"),
           }),
-          formField("Sesión", sessionModeSelect, { field: "sessionMode" }),
-          formField("ID de sesión", sessionIdInput, {
+          formField(t("form.session"), sessionModeSelect, { field: "sessionMode" }),
+          formField(t("form.sessionId"), sessionIdInput, {
             field: "sessionId",
-            hint: "Se rellena solo; déjalo vacío para empezar de cero.",
+            hint: t("form.sessionIdHint"),
           }),
-          formField("Argumentos", argsInput, {
+          formField(t("form.args"), argsInput, {
             field: "args",
             full: true,
-            hint: "Opcional. Uno por línea; se guardan con el cron.",
+            hint: t("form.argsHint"),
           }),
         ),
       ),
       h(
         "section",
         { class: "form-section" },
-        h("h2", { class: "form-section-title", text: "Notificación" }),
+        h("h2", { class: "form-section-title", text: t("form.sectionNotify") }),
         h(
           "div",
           { class: "form-grid" },
-          checkboxField("Avisar al terminar", notifyInput, { field: "notify" }),
-          formField("Cuándo avisar", notifyOnSelect, { field: "notifyOn" }),
+          checkboxField(t("form.notify"), notifyInput, { field: "notify" }),
+          formField(t("form.notifyOn"), notifyOnSelect, { field: "notifyOn" }),
         ),
       ),
       h("div", { class: "form-actions" }, cancelLink, submitButton),
@@ -851,10 +852,10 @@ export function createFormView(ctx: AppContext, jobId: string | null): View {
     function mcpRowElement(row: McpRow): HTMLTableRowElement {
       const select = h(
         "select",
-        { class: "mcp-state", attrs: { "aria-label": `Estado de ${row.name}` } },
-        h("option", { text: "Heredado", attrs: { value: "inherit" } }),
-        h("option", { text: "Encendido", attrs: { value: "on" } }),
-        h("option", { text: "Apagado", attrs: { value: "off" } }),
+        { class: "mcp-state", attrs: { "aria-label": t("form.mcpStateOf", { name: row.name }) } },
+        h("option", { text: t("form.mcpInherit"), attrs: { value: "inherit" } }),
+        h("option", { text: t("form.mcpOn"), attrs: { value: "on" } }),
+        h("option", { text: t("form.mcpOff"), attrs: { value: "off" } }),
       );
       select.value = row.state;
 
@@ -867,7 +868,7 @@ export function createFormView(ctx: AppContext, jobId: string | null): View {
       const pin = h("span", {
         class: "mcp-pin",
         text: "📌",
-        attrs: { title: "Fijado para este cron", "aria-label": "Fijado para este cron" },
+        attrs: { title: t("form.mcpPinned"), "aria-label": t("form.mcpPinned") },
       });
       pin.hidden = row.state === "inherit";
 
@@ -948,7 +949,7 @@ export function createFormView(ctx: AppContext, jobId: string | null): View {
       renderMcpRows(mergeMcpRows(mcps, overrides));
 
       if (mcps.length === 0) {
-        mcpNotice.textContent = options.reason ?? "No se pudo leer la lista de MCPs de opencode.";
+        mcpNotice.textContent = options.reason ?? t("form.mcpUnavailable");
         mcpNotice.hidden = false;
         return;
       }
@@ -958,7 +959,7 @@ export function createFormView(ctx: AppContext, jobId: string | null): View {
 
     function populateModelSelect(options: OpencodeOptions): void {
       modelSelect.replaceChildren(
-        h("option", { text: "Predeterminado del sistema", attrs: { value: "" } }),
+        h("option", { text: t("form.defaultSystem"), attrs: { value: "" } }),
       );
 
       const groups = new Map<string, OpencodeModelOption[]>();
@@ -986,25 +987,25 @@ export function createFormView(ctx: AppContext, jobId: string | null): View {
         );
       }
 
-      modelSelect.append(h("option", { text: "Personalizado…", attrs: { value: "__custom__" } }));
+      modelSelect.append(h("option", { text: t("form.custom"), attrs: { value: "__custom__" } }));
     }
 
     function populateAgentSelect(options: OpencodeOptions): void {
       agentSelect.replaceChildren(
-        h("option", { text: "Predeterminado", attrs: { value: "" } }),
+        h("option", { text: t("form.defaultAgent"), attrs: { value: "" } }),
         ...options.agents.map((agent) =>
           h("option", {
             text: optionLabel(agent.id, agent.name),
             attrs: { value: agent.id },
           }),
         ),
-        h("option", { text: "Personalizado…", attrs: { value: "__custom__" } }),
+        h("option", { text: t("form.custom"), attrs: { value: "__custom__" } }),
       );
     }
 
     function populateVariants(model: OpencodeModelOption | undefined): void {
       modelVariantSelect.replaceChildren(
-        h("option", { text: "Predeterminada", attrs: { value: "" } }),
+        h("option", { text: t("form.defaultVariant"), attrs: { value: "" } }),
         ...(model?.variants ?? []).map((variant) =>
           h("option", { text: variant, attrs: { value: variant } }),
         ),
@@ -1127,7 +1128,7 @@ export function createFormView(ctx: AppContext, jobId: string | null): View {
       } else {
         modelCustomInput.value = modelValue ?? "";
         agentCustomInput.value = agentValue ?? "";
-        optionsNotice.textContent = options.reason ?? "No se pudo leer el catálogo de opencode.";
+        optionsNotice.textContent = options.reason ?? t("form.optionsUnavailable");
         optionsNotice.hidden = false;
       }
 
@@ -1189,10 +1190,7 @@ export function createFormView(ctx: AppContext, jobId: string | null): View {
       promptInput.required = runner === "opencode";
       commandInput.required = runner === "shell";
       cwdInput.required = runner === "shell";
-      cwdHint.textContent =
-        runner === "shell"
-          ? "Ruta absoluta donde se ejecuta el comando."
-          : "Dónde se ejecuta opencode y de dónde salen los MCPs de proyecto. Vacío = tu home.";
+      cwdHint.textContent = runner === "shell" ? t("form.cwdHintShell") : t("form.cwdHintOpencode");
     }
 
     function updateScheduleFields(): void {
@@ -1233,11 +1231,11 @@ export function createFormView(ctx: AppContext, jobId: string | null): View {
         const parsed = parseCron(cronRawInput.value);
         cronPreview.textContent =
           parsed === null
-            ? "La expresión actual no se pudo dividir en cinco campos; revísala."
-            : `Se ejecutará: ${describeCron(parsed)}`;
+            ? t("form.previewInvalid")
+            : t("form.previewWillRun", { desc: describeCron(parsed) });
         return;
       }
-      cronPreview.textContent = `Se ejecutará: ${describeCron(readCronFields())}`;
+      cronPreview.textContent = t("form.previewWillRun", { desc: describeCron(readCronFields()) });
     }
 
     function syncCronPreset(): void {
@@ -1278,7 +1276,7 @@ export function createFormView(ctx: AppContext, jobId: string | null): View {
       if (parsed === null) {
         cronAdvancedInput.checked = true;
         updateCronRawVisibility();
-        setFieldError(form, "scheduleExpr", "La expresión cron debe tener cinco campos.");
+        setFieldError(form, "scheduleExpr", t("form.errCronFiveFields"));
         updateCronPreview();
         cronRawInput.focus();
         return;
@@ -1310,8 +1308,12 @@ export function createFormView(ctx: AppContext, jobId: string | null): View {
       const zone = timezoneInput.value.trim();
       const info = timezoneInfo(zone);
       // Show the zone id too, so the offset is unambiguous (UTC vs GMT+0).
-      const label = zone.length > 0 ? ` en ${zone}` : "";
-      timezoneInfoElement.textContent = `Ahora son las ${info.time}${label} (${info.offset})`;
+      const label = zone.length > 0 ? t("form.timezoneNowZone", { zone }) : "";
+      timezoneInfoElement.textContent = t("form.timezoneNow", {
+        time: info.time,
+        zone: label,
+        offset: info.offset,
+      });
     }
 
     function readModelValue(): string | null {
@@ -1371,10 +1373,10 @@ export function createFormView(ctx: AppContext, jobId: string | null): View {
     function buildInput(): BuildOutcome {
       const name = nameInput.value.trim();
       if (name.length === 0) {
-        return failure("name", "El nombre es obligatorio.");
+        return failure("name", t("form.errNameRequired"));
       }
       if (name.length > 100) {
-        return failure("name", "El nombre no puede superar los 100 caracteres.");
+        return failure("name", t("form.errNameTooLong"));
       }
 
       const runner: RunnerKind = runnerSelect.value === "shell" ? "shell" : "opencode";
@@ -1382,13 +1384,13 @@ export function createFormView(ctx: AppContext, jobId: string | null): View {
       const command = commandInput.value.trim();
       const cwd = cwdInput.value.trim();
       if (runner === "opencode" && prompt.length === 0) {
-        return failure("prompt", "El prompt es obligatorio para el ejecutor opencode.");
+        return failure("prompt", t("form.errPromptRequired"));
       }
       if (runner === "shell" && command.length === 0) {
-        return failure("command", "El comando es obligatorio para el ejecutor shell.");
+        return failure("command", t("form.errCommandRequired"));
       }
       if (runner === "shell" && cwd.length === 0) {
-        return failure("cwd", "El directorio de trabajo es obligatorio.");
+        return failure("cwd", t("form.errCwdRequired"));
       }
 
       const args = argsInput.value
@@ -1412,43 +1414,43 @@ export function createFormView(ctx: AppContext, jobId: string | null): View {
           ? cronRawInput.value.trim()
           : composeCron(readCronFields()).trim();
         if (parseCron(scheduleExpr) === null) {
-          return failure("scheduleExpr", "La expresión cron debe tener cinco campos.");
+          return failure("scheduleExpr", t("form.errCronFiveFields"));
         }
       } else if (scheduleKind === "interval") {
         const raw = intervalValueInput.value.trim();
         if (!/^\d+$/.test(raw)) {
-          return failure("scheduleExpr", "El intervalo debe ser un número entero.");
+          return failure("scheduleExpr", t("form.errIntervalInteger"));
         }
         const amount = Number(raw);
         if (!Number.isSafeInteger(amount) || amount < 1) {
-          return failure("scheduleExpr", "El intervalo debe ser mayor o igual que 1.");
+          return failure("scheduleExpr", t("form.errIntervalMin"));
         }
         scheduleExpr = `${amount}${intervalUnitSelect.value === "h" ? "h" : "m"}`;
       } else {
         const raw = onceInput.value.trim();
         if (raw.length === 0) {
-          return failure("scheduleExpr", "La fecha única es obligatoria.");
+          return failure("scheduleExpr", t("form.errOnceRequired"));
         }
         const date = new Date(raw);
         if (Number.isNaN(date.getTime())) {
-          return failure("scheduleExpr", "La fecha única no es válida.");
+          return failure("scheduleExpr", t("form.errOnceInvalid"));
         }
         scheduleExpr = date.toISOString();
       }
 
       const timezone = timezoneInput.value.trim();
       if (timezone.length === 0) {
-        return failure("timezone", "La zona horaria es obligatoria.");
+        return failure("timezone", t("form.errTimezoneRequired"));
       }
 
       const catchUpLimit = Number(catchUpLimitInput.value);
       if (!Number.isInteger(catchUpLimit) || catchUpLimit < 1 || catchUpLimit > 100) {
-        return failure("catchUpLimit", "El límite de recuperación debe estar entre 1 y 100.");
+        return failure("catchUpLimit", t("form.errCatchUpLimit"));
       }
 
       const timeoutSec = Number(timeoutInput.value);
       if (!Number.isInteger(timeoutSec) || timeoutSec < 1 || timeoutSec > 86400) {
-        return failure("timeoutSec", "El tiempo máximo debe estar entre 1 y 86400 segundos.");
+        return failure("timeoutSec", t("form.errTimeout"));
       }
 
       const catchUp: CatchUpPolicy =
@@ -1516,7 +1518,7 @@ export function createFormView(ctx: AppContext, jobId: string | null): View {
 
       submitting = true;
       submitButton.disabled = true;
-      submitButton.textContent = "Guardando…";
+      submitButton.textContent = t("form.saving");
       try {
         if (job === null) {
           await ctx.api.createJob(outcome.input);
@@ -1526,7 +1528,7 @@ export function createFormView(ctx: AppContext, jobId: string | null): View {
         if (disposed) {
           return;
         }
-        ctx.notify(job === null ? "Cron creado." : "Cron actualizado.", "success");
+        ctx.notify(job === null ? t("form.toastCreated") : t("form.toastUpdated"), "success");
         ctx.navigate("#/");
       } catch (error) {
         if (error instanceof ApiError && error.field !== undefined) {
@@ -1538,7 +1540,7 @@ export function createFormView(ctx: AppContext, jobId: string | null): View {
       } finally {
         submitting = false;
         submitButton.disabled = false;
-        submitButton.textContent = "Guardar";
+        submitButton.textContent = t("form.save");
       }
     }
 
@@ -1623,8 +1625,8 @@ export function createFormView(ctx: AppContext, jobId: string | null): View {
 
     content.replaceChildren(
       pageHeader(
-        isEdit ? "Editar cron" : "Nuevo cron",
-        isEdit ? "Cambia la configuración y guarda" : "Programa una tarea nueva",
+        isEdit ? t("form.titleEdit") : t("form.titleNew"),
+        isEdit ? t("form.subtitleEdit") : t("form.subtitleNew"),
       ),
       form,
     );

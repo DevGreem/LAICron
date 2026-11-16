@@ -4,6 +4,7 @@ import type { DatabaseSync } from "node:sqlite";
 import type { Job, RunStatus } from "../types.js";
 import { NotFoundError } from "./errors.js";
 import { toJob } from "./mappers.js";
+import { t } from "../i18n.js";
 import type { CreateJobInput, JobRepository, UpdateJobInput } from "./repository-types.js";
 import { applyJobDefaults, validateJobFields } from "./validation.js";
 
@@ -87,7 +88,7 @@ export function createJobRepository(db: DatabaseSync): JobRepository {
 
       const created = getJob(id);
       if (created === null) {
-        throw new Error("No se pudo leer el cron recién creado.");
+        throw new Error(t("db.jobCreateFailed"));
       }
       return created;
     },
@@ -109,7 +110,7 @@ export function createJobRepository(db: DatabaseSync): JobRepository {
     update(id: string, patch: UpdateJobInput): Job {
       const existing = getJob(id);
       if (existing === null) {
-        throw new NotFoundError(`No se encontró el cron ${id}.`);
+        throw new NotFoundError(t("db.jobNotFound", { id }));
       }
 
       // Validate the merged result, not just the patch, so changing one field cannot leave the
@@ -153,7 +154,7 @@ export function createJobRepository(db: DatabaseSync): JobRepository {
 
       const updated = getJob(id);
       if (updated === null) {
-        throw new NotFoundError(`No se encontró el cron ${id}.`);
+        throw new NotFoundError(t("db.jobNotFound", { id }));
       }
       return updated;
     },

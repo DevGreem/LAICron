@@ -1,7 +1,9 @@
 [Desktop Entry]
 Type=Application
 Name=LAICron
-Comment=Planificador local de prompts y comandos
+Comment=Local prompt and command scheduler
+Comment[es]=Planificador local de prompts y comandos
+Comment[en]=Local prompt and command scheduler
 Exec=@REPO_ROOT@/packages/daemon/bin/laicron.js open
 Icon=utilities-system-monitor
 Terminal=false

@@ -1,6 +1,7 @@
 import type { JobRepository, MetaRepository, RunRepository } from "../db/index.js";
 import { computeNextRun, countMissedRuns } from "../schedule/index.js";
 import type { CatchUpPolicy, Clock, Engine, Job } from "../types.js";
+import { t } from "../i18n.js";
 
 export interface ClockDeps {
   engine: Engine;
@@ -36,7 +37,7 @@ function createErrorReporter(onError: ((error: unknown) => void) | undefined): E
     };
   }
   return (error: unknown): void => {
-    console.error("Error del reloj de LAICron:", error);
+    console.error(t("engine.clockError"), error);
   };
 }
 

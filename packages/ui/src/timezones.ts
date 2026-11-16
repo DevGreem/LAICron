@@ -1,3 +1,5 @@
+import { t } from "./i18n.js";
+
 export const FALLBACK_TIMEZONES: string[] = [
   "UTC",
   "Europe/Madrid",
@@ -98,6 +100,6 @@ export function timezoneInfo(
 
     return { time, offset };
   } catch {
-    return { time: "--:--", offset: "zona no válida" };
+    return { time: "--:--", offset: t("timezones.invalidZone") };
   }
 }

@@ -3,6 +3,7 @@ import { createServer } from "node:http";
 import type { IncomingMessage, Server, ServerResponse } from "node:http";
 
 import type { Engine, EngineEvent } from "@laicron/core";
+import { getBaseLocale, parseLocale, runWithLocale, t } from "@laicron/core/i18n";
 import type {
   JobRepository,
   MessageRepository,
@@ -63,7 +64,7 @@ async function readOpencodeOptions(
   } catch {
     return {
       available: false,
-      reason: "No se pudo leer el catálogo de opencode",
+      reason: t("api.catalogFailed"),
       models: [],
       agents: [],
       mcps: [],
@@ -221,10 +222,10 @@ export function createApiServer(deps: ApiDeps): ApiServer {
       return;
     }
 
-    sendError(res, 404, "not_found", "Recurso no encontrado.");
+    sendError(res, 404, "not_found", t("api.notFound"));
   }
 
-  async function handleRequest(req: IncomingMessage, res: ServerResponse): Promise<void> {
+  async function handleRequestInLocale(req: IncomingMessage, res: ServerResponse): Promise<void> {
     try {
       const url = new URL(req.url ?? "/", "http://127.0.0.1");
       const method = req.method ?? "GET";
@@ -237,7 +238,7 @@ export function createApiServer(deps: ApiDeps): ApiServer {
 
       if (pathname === "/api" || pathname.startsWith("/api/")) {
         if (!isAuthorized(req, deps.token)) {
-          sendError(res, 401, "unauthorized", "Token no válido.");
+          sendError(res, 401, "unauthorized", t("api.unauthorized"));
           return;
         }
         await handleApi(req, res, url, method);
@@ -249,21 +250,26 @@ export function createApiServer(deps: ApiDeps): ApiServer {
         return;
       }
 
-      sendError(res, 404, "not_found", "Recurso no encontrado.");
+      sendError(res, 404, "not_found", t("api.notFound"));
     } catch (error) {
       if (res.headersSent || res.writableEnded || res.destroyed) {
         res.destroy();
         return;
       }
       if (!sendKnownError(res, error)) {
-        sendError(res, 500, "internal_error", "Error interno del servidor.");
+        sendError(res, 500, "internal_error", t("api.internalError"));
       }
     }
   }
 
+  async function handleRequest(req: IncomingMessage, res: ServerResponse): Promise<void> {
+    const locale = parseLocale(req.headers["accept-language"]) ?? getBaseLocale();
+    await runWithLocale(locale, () => handleRequestInLocale(req, res));
+  }
+
   async function start(port: number, host: string = DEFAULT_HOST): Promise<number> {
     if (server !== null) {
-      throw new Error("El servidor HTTP ya está en marcha.");
+      throw new Error(t("api.serverRunning"));
     }
 
     const httpServer = createServer((req, res) => {
@@ -289,7 +295,7 @@ export function createApiServer(deps: ApiDeps): ApiServer {
 
     const address = httpServer.address();
     if (address === null || typeof address === "string") {
-      throw new Error("El servidor HTTP no expuso un puerto TCP.");
+      throw new Error(t("api.serverNoPort"));
     }
     return address.port;
   }

@@ -10,6 +10,7 @@ import type {
   SessionMode,
 } from "../types.js";
 import { ValidationError } from "./errors.js";
+import { t } from "../i18n.js";
 import type { CreateJobInput } from "./repository-types.js";
 
 const RUNNERS: readonly RunnerKind[] = ["opencode", "shell"];
@@ -94,7 +95,7 @@ export function normalizeMcpOverrides(value: unknown): Record<string, McpState> 
     return {};
   }
   if (typeof value !== "object" || Array.isArray(value)) {
-    fail("mcpOverrides", "Los MCPs deben ser un objeto de nombre a on u off.");
+    fail("mcpOverrides", t("validation.mcpObject"));
   }
 
   const entries: Array<[string, McpState]> = [];
@@ -103,12 +104,12 @@ export function normalizeMcpOverrides(value: unknown): Record<string, McpState> 
       continue;
     }
     if (!MCP_STATES.includes(state as McpState)) {
-      fail("mcpOverrides", `El estado del MCP ${name} debe ser on u off.`);
+      fail("mcpOverrides", t("validation.mcpState", { name }));
     }
     entries.push([name, state as McpState]);
   }
   if (entries.length > MAX_MCP_OVERRIDES) {
-    fail("mcpOverrides", `No se pueden fijar más de ${MAX_MCP_OVERRIDES} MCPs.`);
+    fail("mcpOverrides", t("validation.mcpLimit", { limit: MAX_MCP_OVERRIDES }));
   }
   return Object.fromEntries(entries);
 }
@@ -142,104 +143,104 @@ function isValidOnceExpression(expr: string): boolean {
 
 function validateScheduleExpression(kind: ScheduleKind, expr: unknown): void {
   if (!isNonEmptyString(expr)) {
-    fail("scheduleExpr", "La expresión de programación es obligatoria.");
+    fail("scheduleExpr", t("validation.scheduleExprRequired"));
   }
   switch (kind) {
     case "cron":
       if (!isValidCronExpression(expr)) {
-        fail("scheduleExpr", "La expresión cron debe tener exactamente cinco campos.");
+        fail("scheduleExpr", t("validation.cronFiveFields"));
       }
       break;
     case "interval":
       if (!isValidIntervalExpression(expr)) {
-        fail("scheduleExpr", "El intervalo debe tener la forma 15m o 2h.");
+        fail("scheduleExpr", t("validation.intervalShape"));
       }
       break;
     case "once":
       if (!isValidOnceExpression(expr)) {
-        fail("scheduleExpr", "La fecha única debe ser una fecha ISO válida.");
+        fail("scheduleExpr", t("validation.onceIso"));
       }
       break;
     default:
-      fail("scheduleKind", "El tipo de programación debe ser cron, interval o once.");
+      fail("scheduleKind", t("validation.scheduleKind"));
   }
 }
 
 /** Validates a fully merged job. Throws the first `ValidationError` found. */
 export function validateJobFields(job: ResolvedJobFields): void {
   if (typeof job.name !== "string" || job.name.trim().length === 0) {
-    fail("name", "El nombre es obligatorio.");
+    fail("name", t("validation.nameRequired"));
   }
   if (job.name.trim().length > 100) {
-    fail("name", "El nombre no puede superar los 100 caracteres.");
+    fail("name", t("validation.nameTooLong"));
   }
 
   if (!RUNNERS.includes(job.runner)) {
-    fail("runner", "El ejecutor debe ser opencode o shell.");
+    fail("runner", t("validation.runner"));
   }
   if (job.runner === "opencode" && !isNonEmptyString(job.prompt)) {
-    fail("prompt", "El prompt es obligatorio para el ejecutor opencode.");
+    fail("prompt", t("validation.promptRequired"));
   }
   if (job.runner === "shell" && !isNonEmptyString(job.command)) {
-    fail("command", "El comando es obligatorio para el ejecutor shell.");
+    fail("command", t("validation.commandRequired"));
   }
   if (job.prompt !== null && typeof job.prompt !== "string") {
-    fail("prompt", "El prompt debe ser texto o nulo.");
+    fail("prompt", t("validation.promptType"));
   }
   if (job.command !== null && typeof job.command !== "string") {
-    fail("command", "El comando debe ser texto o nulo.");
+    fail("command", t("validation.commandType"));
   }
 
   if (!Array.isArray(job.args) || !job.args.every((arg) => typeof arg === "string")) {
-    fail("args", "Los argumentos deben ser una lista de textos.");
+    fail("args", t("validation.args"));
   }
   if (!isNonEmptyString(job.cwd)) {
-    fail("cwd", "El directorio de trabajo es obligatorio.");
+    fail("cwd", t("validation.cwdRequired"));
   }
   if (job.model !== null && typeof job.model !== "string") {
-    fail("model", "El modelo debe ser texto o nulo.");
+    fail("model", t("validation.modelType"));
   }
   if (job.agent !== null && typeof job.agent !== "string") {
-    fail("agent", "El agente debe ser texto o nulo.");
+    fail("agent", t("validation.agentType"));
   }
 
   if (!SESSION_MODES.includes(job.sessionMode)) {
-    fail("sessionMode", "El modo de sesión debe ser independent o continuous.");
+    fail("sessionMode", t("validation.sessionMode"));
   }
   if (job.sessionId !== null && typeof job.sessionId !== "string") {
-    fail("sessionId", "El identificador de sesión debe ser texto o nulo.");
+    fail("sessionId", t("validation.sessionIdType"));
   }
 
   if (!SCHEDULE_KINDS.includes(job.scheduleKind)) {
-    fail("scheduleKind", "El tipo de programación debe ser cron, interval o once.");
+    fail("scheduleKind", t("validation.scheduleKind"));
   }
   validateScheduleExpression(job.scheduleKind, job.scheduleExpr);
 
   if (!isValidTimezone(job.timezone)) {
-    fail("timezone", "La zona horaria no es una zona IANA válida.");
+    fail("timezone", t("validation.timezoneInvalid"));
   }
 
   if (!CATCH_UP_POLICIES.includes(job.catchUp)) {
-    fail("catchUp", "La política de recuperación debe ser none, once o all.");
+    fail("catchUp", t("validation.catchUp"));
   }
   if (!Number.isInteger(job.catchUpLimit) || job.catchUpLimit < 1 || job.catchUpLimit > 100) {
-    fail("catchUpLimit", "El límite de recuperación debe estar entre 1 y 100.");
+    fail("catchUpLimit", t("validation.catchUpLimit"));
   }
 
   if (!OVERLAP_POLICIES.includes(job.overlap)) {
-    fail("overlap", "La política de solapamiento debe ser skip, queue o kill.");
+    fail("overlap", t("validation.overlap"));
   }
   if (!Number.isInteger(job.timeoutSec) || job.timeoutSec < 1 || job.timeoutSec > 86400) {
-    fail("timeoutSec", "El tiempo máximo debe estar entre 1 y 86400 segundos.");
+    fail("timeoutSec", t("validation.timeout"));
   }
 
   if (typeof job.notify !== "boolean") {
-    fail("notify", "La notificación debe ser verdadera o falsa.");
+    fail("notify", t("validation.notify"));
   }
   if (!NOTIFY_ON_VALUES.includes(job.notifyOn)) {
-    fail("notifyOn", "El aviso debe ser always, failure o success.");
+    fail("notifyOn", t("validation.notifyOn"));
   }
   if (typeof job.enabled !== "boolean") {
-    fail("enabled", "El estado debe ser verdadero o falso.");
+    fail("enabled", t("validation.enabled"));
   }
 }

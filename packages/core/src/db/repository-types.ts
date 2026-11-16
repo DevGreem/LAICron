@@ -1,6 +1,7 @@
 import type {
   CatchUpPolicy,
   Job,
+  JobUsage,
   McpState,
   Message,
   NotifyOn,
@@ -9,6 +10,7 @@ import type {
   RunnerKind,
   RunStatus,
   RunTrigger,
+  RunUsage,
   ScheduleKind,
   SessionMode,
 } from "../types.js";
@@ -72,11 +74,15 @@ export interface RunRepository {
       error: string | null;
       sessionId: string | null;
       notificationDelivered: boolean | null;
+      /** Omitted or `null` leaves every consumption column as `NULL`. */
+      usage?: RunUsage | null;
     },
   ): Run;
   listByJob(jobId: string, opts: { limit: number; offset: number }): Run[];
   countByJob(jobId: string): number;
   activeByJob(jobId: string): Run | null;
+  /** Totals every run of the job, ignoring `NULL` columns and runs without data. */
+  usageByJob(jobId: string): JobUsage;
   markRunningAsInterrupted(nowMs: number): number;
   pruneForJob(jobId: string, opts: { maxAgeMs: number; maxCount: number }): number;
 }

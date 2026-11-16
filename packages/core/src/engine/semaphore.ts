@@ -1,3 +1,5 @@
+import { t } from "../i18n.js";
+
 /**
  * Minimal FIFO semaphore used to cap concurrent AI executions.
  *
@@ -15,7 +17,7 @@ interface Waiter {
 
 function abortReason(signal: AbortSignal): unknown {
   const reason: unknown = signal.reason;
-  return reason ?? new Error("La ejecución se canceló.");
+  return reason ?? new Error(t("engine.cancelled"));
 }
 
 function detachAbortListener(waiter: Waiter): void {
