@@ -10,6 +10,11 @@ afterEach(() => {
 
 describe("one-shot schedules", () => {
   it("accepts a future instant and returns it unchanged", () => {
+    // validateSchedule compares against the wall clock, so freeze it: the
+    // target date would otherwise become past as real time moves on.
+    vi.useFakeTimers();
+    vi.setSystemTime(new Date("2026-10-30T00:00:00.000Z"));
+
     const target = "2026-11-01T09:00:00.000Z";
     const from = Date.parse("2026-10-30T00:00:00.000Z");
 
