@@ -1,103 +1,102 @@
 # LAICron
 
-Planificador local tipo cron para Linux. Ejecuta **prompts de IA** (con `opencode`) o **comandos de
-shell** a la hora que definas, desde una ventana de escritorio, y sigue funcionando con la ventana
-cerrada porque el reloj vive en un daemon de systemd.
+A local cron-style scheduler for Linux. It runs **AI prompts** (through `opencode`) or **shell
+commands** at the time you set, from a desktop window, and keeps running with the window closed
+because the clock lives in a systemd daemon.
 
-## Qué es y qué problema resuelve
+## What it is and what problem it solves
 
-`cron` sabe *cuándo* ejecutar, pero lanza comandos ciegos: no tiene interfaz, ni historial, ni aviso
-al terminar, y si el equipo estaba apagado no permite decidir qué hacer con las ejecuciones
-perdidas. Los "crons con IA" de los proveedores cloud resuelven la parte de la IA, pero atan a su
-nube, su modelo y su cuenta. Las apps de escritorio con tareas programadas, en cambio, suelen exigir
-tener la app abierta.
+`cron` knows *when* to run, but it launches blind commands: no interface, no history, no notice when
+a job finishes, and if the machine was off it gives you no say in what happens to the missed runs.
+The "AI crons" from cloud providers solve the AI part, but tie you to their cloud, their model and
+their account. Desktop apps with scheduled tasks, on the other hand, usually require the app to be
+open.
 
-LAICron cubre ese hueco en local: un daemon de systemd `--user` mantiene el reloj y ejecuta cada
-cron con tu usuario, una ventana GTK3/WebKit2 4.1 sirve para crear y revisar los crons, y SQLite
-guarda el historial. Cada cron puede ser un prompt para `opencode` o un comando arbitrario de shell.
+LAICron fills that gap locally: a systemd `--user` daemon keeps the clock and runs each cron with
+your user, a GTK3/WebKit2 4.1 window lets you create and review the crons, and SQLite stores the
+history. Each cron can be a prompt for `opencode` or an arbitrary shell command.
 
-El resultado: programas un prompt o un comando una vez y se ejecuta aunque hayas cerrado la ventana;
-al terminar puedes recibir una notificación y consultar después qué pasó, cuándo y qué respondió el
-modelo.
+The result: you schedule a prompt or a command once and it runs even after you close the window;
+when it finishes you can get a notification and later check what happened, when, and what the model
+answered.
 
 ```
-Ventana GTK3/WebKit2 4.1 ──HTTP──> daemon (systemd --user) ──> opencode / sh -lc
+GTK3/WebKit2 4.1 window ──HTTP──> daemon (systemd --user) ──> opencode / sh -lc
                                       │
                                       ├──> SQLite (~/.local/share/laicron/laicron.db)
                                       └──> notify-send
 ```
 
-## Funciones
+## Features
 
-- Crons con **prompt de IA** (`opencode run --format json`) o **comando de shell** (`sh -lc`).
-- Formulario con listas de **modelos, variantes y agentes** leídas de `opencode`, selector de zona
-  horaria con la hora actual y constructor de cron por campos con vista previa.
-- **Argumentos por cron**: posicionales en los comandos de shell (`$1`, `$2`…) y extra antes del
-  prompt en `opencode`.
-- Tres formas de repetición: expresión cron de cinco campos, intervalo (`15m`, `2h`) y fecha única.
-- **Catch-up configurable** si el equipo estaba apagado: no recuperar, recuperar una vez o recuperar
-  todas las pérdidas (con un tope configurable).
-- **Solapamiento configurable** si la ejecución anterior sigue en marcha: omitir la nueva, encolarla
-  o terminar la anterior.
-- Notificaciones de escritorio con `notify-send`, opcionales por cron y filtrables (siempre, solo
-  fallos o solo éxito).
-- Historial de ejecuciones por cron y conversación (prompt y respuesta) en los crons de IA.
-- Sesión continua opcional: cada ejecución continúa la conversación anterior de `opencode`.
-- Pausar, reanudar y "ejecutar ahora" desde la ventana.
-- Cola de ejecuciones con un máximo de dos crons de IA concurrentes.
-- Ejecución con la ventana cerrada y arranque automático con el gestor de usuario de systemd.
+- Crons with an **AI prompt** (`opencode run --format json`) or a **shell command** (`sh -lc`).
+- Form with **model, variant and agent** lists read from `opencode`, a time zone picker with the
+  current time, and a field-based cron builder with a preview.
+- **Per-cron arguments**: positional in shell commands (`$1`, `$2`…) and extra ones before the
+  prompt in `opencode`.
+- Three repetition modes: a five-field cron expression, an interval (`15m`, `2h`) and a one-off date.
+- **Configurable catch-up** when the machine was off: don't recover, recover once, or recover all
+  missed runs (with a configurable cap).
+- **Configurable overlap** when the previous run is still going: skip the new one, queue it, or kill
+  the previous one.
+- Desktop notifications through `notify-send`, optional per cron and filterable (always, failures
+  only, or success only).
+- Run history per cron, plus the conversation (prompt and answer) for AI crons.
+- Optional continuous session: each run continues the previous `opencode` conversation.
+- Pause, resume and "run now" from the window.
+- Run queue with a maximum of two concurrent AI crons.
+- Runs with the window closed and starts automatically with the systemd user manager.
 
-## Requisitos
+## Requirements
 
-| Requisito | Para qué |
+| Requirement | What for |
 | --- | --- |
-| Linux con systemd de usuario | El daemon se instala como `laicron.service` en el gestor de usuario |
-| Node.js 22 o superior | Daemon, compilación y CLI |
-| pnpm | Instalación de dependencias y compilación |
-| Python 3 con PyGObject (`gi`) | Lanzador de la ventana |
-| GTK3 y WebKit2GTK 4.1 (se acepta 4.0) | Ventana de escritorio |
-| `notify-send` (libnotify) | Notificaciones de escritorio |
-| `opencode` en el `PATH` | Crons de IA y listas de modelo/agente del formulario (sin él se escriben a mano) |
+| Linux with systemd user instance | The daemon is installed as `laicron.service` in the user manager |
+| Node.js 22 or newer | Daemon, build and CLI |
+| pnpm | Installing dependencies and building |
+| Python 3 with PyGObject (`gi`) | Window launcher |
+| GTK3 and WebKit2GTK 4.1 (4.0 is accepted) | Desktop window |
+| `notify-send` (libnotify) | Desktop notifications |
+| `opencode` on `PATH` | AI crons and the form's model/agent lists (without it you type them by hand) |
 
-`scripts/install.sh` comprueba Node, pnpm y `systemctl`; Python, GTK/WebKit, `notify-send` y
-`opencode` se usan en tiempo de ejecución. Si falta alguno, la instalación no falla, pero la ventana,
-las notificaciones o los crons de IA no funcionarán (ver *Solución de problemas*).
+`scripts/install.sh` checks Node, pnpm and `systemctl`; Python, GTK/WebKit, `notify-send` and
+`opencode` are used at run time. If any of them is missing the installation does not fail, but the
+window, the notifications or the AI crons will not work (see *Troubleshooting*).
 
-En Debian/Ubuntu, los paquetes de la ventana son `gir1.2-gtk-3.0` y `gir1.2-webkit2-4.1`, como
-indica el propio lanzador. En este sistema `WebKit2 4.1` es la variante GTK3 de WebKitGTK; usar GTK4
-exigiría WebKitGTK 6.0, que no está instalado.
+On Debian/Ubuntu the window packages are `gir1.2-gtk-3.0` and `gir1.2-webkit2-4.1`, as the launcher
+itself reports. On this system `WebKit2 4.1` is the GTK3 flavour of WebKitGTK; using GTK4 would
+require WebKitGTK 6.0, which is not installed.
 
-## Instalación
+## Installation
 
-Desde la raíz del repositorio, con tu usuario (sin `sudo`: la unidad es `--user` y todo se instala
-en tu `$HOME`):
+From the repository root, with your user (no `sudo`: the unit is `--user` and everything is installed
+into your `$HOME`):
 
 ```sh
 bash scripts/install.sh
 ```
 
-El script hace, en este orden:
+The script does the following, in this order:
 
-1. Comprueba que existen `node`, `pnpm` y `systemctl`.
-2. Instala las dependencias con `pnpm install --frozen-lockfile`.
-3. Compila todo con `pnpm build`.
-4. Ejecuta `node packages/platform/linux/dist/service-installer.js install`, que:
-   - escribe `~/.config/laicron/env` con el `PATH` de tu sesión (permisos `0600`);
-   - escribe la unidad `~/.config/systemd/user/laicron.service`;
-   - escribe la entrada de menú `~/.local/share/applications/laicron.desktop`;
-   - recarga systemd y ejecuta `systemctl --user enable --now laicron`;
-   - crea el enlace `~/.local/bin/laicron` → `packages/daemon/bin/laicron.js`;
-   - avisa si `~/.local/bin` no está en tu `PATH`;
-   - intenta activar *linger* con `loginctl enable-linger` para que el daemon siga tras cerrar
-     sesión (si el sistema no lo permite, avisa y el servicio funciona mientras la sesión esté
-     abierta).
-5. Comprueba con `systemctl --user is-active --quiet laicron`. Si el servicio no está activo,
-   muestra las últimas líneas del journal y sale con código 1.
+1. Checks that `node`, `pnpm` and `systemctl` exist.
+2. Installs dependencies with `pnpm install --frozen-lockfile`.
+3. Builds everything with `pnpm build`.
+4. Runs `node packages/platform/linux/dist/service-installer.js install`, which:
+   - writes `~/.config/laicron/env` with your session's `PATH` (permissions `0600`);
+   - writes the `~/.config/systemd/user/laicron.service` unit;
+   - writes the menu entry `~/.local/share/applications/laicron.desktop`;
+   - reloads systemd and runs `systemctl --user enable --now laicron`;
+   - creates the `~/.local/bin/laicron` symlink → `packages/daemon/bin/laicron.js`;
+   - warns if `~/.local/bin` is not on your `PATH`;
+   - tries to enable *linger* with `loginctl enable-linger` so the daemon survives logout (if the
+     system does not allow it, it warns and the service works while the session is open).
+5. Checks with `systemctl --user is-active --quiet laicron`. If the service is not active, it shows
+   the last journal lines and exits with code 1.
 
-La unidad apunta con rutas absolutas a este repositorio (`ExecStart` y `WorkingDirectory`). Si mueves
-o renombras la carpeta, vuelve a ejecutar `scripts/install.sh`.
+The unit points at this repository with absolute paths (`ExecStart` and `WorkingDirectory`). If you
+move or rename the folder, run `scripts/install.sh` again.
 
-### Comprobar que quedó activo
+### Checking that it is running
 
 ```sh
 systemctl --user status laicron --no-pager
@@ -105,197 +104,199 @@ laicron status
 curl -sS http://127.0.0.1:7317/api/health
 ```
 
-Deberías ver el servicio `active (running)`, el mensaje `LAICron está activo (versión 0.1.0).` y un
-JSON con `"status":"ok"`.
+You should see the service as `active (running)`, the message `LAICron está activo (versión 0.1.0).`
+and a JSON body with `"status":"ok"`.
 
-> Si `laicron` no está en tu `PATH`, usa `~/.local/bin/laicron status` o añade `~/.local/bin` a tu
-> perfil. El instalador avisa cuando esa carpeta no está en el `PATH`.
+> If `laicron` is not on your `PATH`, use `~/.local/bin/laicron status` or add `~/.local/bin` to your
+> profile. The installer warns when that folder is not on `PATH`.
 
-> Si el servicio no queda activo, `install.sh` muestra las últimas líneas del journal y termina con
-> código 1; no imprime un éxito falso.
+> If the service does not become active, `install.sh` shows the last journal lines and exits with
+> code 1; it does not print a fake success.
 
-## Uso
+## Usage
 
-### Abrir la ventana
+### Opening the window
 
-- Desde el menú de aplicaciones: **LAICron**.
-- Desde una terminal:
+- From the applications menu: **LAICron**.
+- From a terminal:
 
   ```sh
   laicron open
   ```
 
-  Si el comando no existe, usa `~/.local/bin/laicron open` o añade `~/.local/bin` a tu `PATH`.
+  If the command does not exist, use `~/.local/bin/laicron open` or add `~/.local/bin` to your
+  `PATH`.
 
-La ventana solo se abre si el daemon responde en el puerto configurado; si no, `open` termina con
+The window only opens if the daemon answers on the configured port; otherwise `open` exits with
 `El daemon de LAICron no está activo. Arráncalo con: laicron start`.
 
-La interfaz es una web local que sirve el propio daemon en `http://127.0.0.1:7317/` por defecto. La
-ventana la carga con el token en el fragmento de la URL; si abres esa dirección en un navegador sin
-token verás `Falta el token de acceso. Abre LAICron desde el menú.`
+The interface is a local web app served by the daemon itself at `http://127.0.0.1:7317/` by default.
+The window loads it with the token in the URL fragment; if you open that address in a browser without
+the token you will see `Falta el token de acceso. Abre LAICron desde el menú.`
 
-### Crear un cron
+### Creating a cron
 
-1. Pulsa **Crear cron**.
-2. Pon un **nombre** (obligatorio, máximo 100 caracteres).
-3. Elige el **ejecutor**:
-   - `opencode (IA)`: el **prompt** es obligatorio. **Modelo**, **variante** y **agente** son
-     opcionales y se eligen de las listas que LAICron lee de `opencode`.
-   - `shell (comando)`: el **comando** es obligatorio y se ejecuta con `sh -lc`; el **directorio de
-     trabajo** también es obligatorio (si no lo indicas al crear por API, se usa tu `$HOME`).
-4. **Argumentos** (opcional, en *Ejecución*): uno por línea. En `shell` se pasan como parámetros
-   posicionales (`$1`, `$2`…; `$0` es `laicron`). En `opencode` se insertan antes del prompt.
-5. Elige la **repetición** y la **zona horaria** (campo con sugerencias que incluye `UTC`, la zona
-   del equipo y las zonas IANA; debajo se muestra la hora actual y el desfase).
-6. Ajusta la ejecución: política de catch-up, límite, solapamiento, tiempo máximo (1–86400 segundos;
-   600 por defecto) y modo de sesión.
-7. Configura la **notificación** si la quieres.
-8. **Guardar**. El cron aparece en la lista con su próxima ejecución calculada.
+1. Click **Create cron**.
+2. Set a **name** (required, maximum 100 characters).
+3. Choose the **runner**:
+   - `opencode (AI)`: the **prompt** is required. **Model**, **variant** and **agent** are optional
+     and are picked from the lists LAICron reads from `opencode`.
+   - `shell (command)`: the **command** is required and runs with `sh -lc`; the **working
+     directory** is also required (if you don't set it when creating through the API, your `$HOME`
+     is used).
+4. **Arguments** (optional, under *Run*): one per line. With `shell` they are passed as positional
+   parameters (`$1`, `$2`…; `$0` is `laicron`). With `opencode` they are inserted before the prompt.
+5. Choose the **repetition** and the **time zone** (a field with suggestions that includes `UTC`,
+   the machine zone and the IANA zones; the current time and the offset are shown below it).
+6. Adjust the run: catch-up policy, limit, overlap, maximum time (1–86400 seconds; 600 by default)
+   and session mode.
+7. Configure the **notification** if you want one.
+8. **Save**. The cron appears in the list with its next run already calculated.
 
-En el detalle de cada cron puedes **Pausar**/**Reanudar**, **Editar**, **Ejecutar ahora** y consultar
-el historial de ejecuciones y la conversación.
+In each cron's detail view you can **Pause**/**Resume**, **Edit**, **Run now** and check the run
+history and the conversation.
 
-#### Modelo, variante y agente
+#### Model, variant and agent
 
-Con el ejecutor `opencode (IA)`, el formulario pide el catálogo al daemon
-(`GET /api/opencode/options`) y muestra tres selectores:
+With the `opencode (AI)` runner, the form asks the daemon for the catalog
+(`GET /api/opencode/options`) and shows three selectors:
 
-- **Modelo**: agrupado por proveedor, con el nombre legible y el id. La opción vacía
-  («Predeterminado del sistema») deja que `opencode` use su modelo por defecto.
-- **Variante**: las variantes del modelo elegido (por ejemplo, niveles de razonamiento). Solo se
-  habilita si ese modelo tiene alguna; «Predeterminada» no añade sufijo.
-- **Agente**: solo los agentes **primarios**. Los subagentes y los ocultos no aparecen porque no se
-  pueden ejecutar como agente principal del cron.
+- **Model**: grouped by provider, with the readable name and the id. The empty option
+  ("system default") lets `opencode` use its default model.
+- **Variant**: the variants of the chosen model (for example, reasoning levels). It is only enabled
+  if that model has any; "default" adds no suffix.
+- **Agent**: **primary** agents only. Subagents and hidden agents are not listed because they cannot
+  be run as the cron's main agent.
 
-Si eliges una variante, el cron guarda el modelo como `proveedor/modelo#variante`, el mismo formato
-que acepta `opencode run --model`; sin variante se guarda `proveedor/modelo`.
+If you pick a variant, the cron stores the model as `provider/model#variant`, the same format
+`opencode run --model` accepts; without a variant it stores `provider/model`.
 
-Los selectores de modelo y agente incluyen **Personalizado…** para escribir un valor que no esté en
-la lista. Si `opencode` no está instalado o el catálogo falla, el formulario muestra un aviso y deja
-los campos de texto en lugar de las listas: puedes seguir creando el cron escribiendo el modelo y el
-agente a mano, o dejarlos vacíos. **Recargar opciones** vuelve a leerlo sin reiniciar el daemon.
+The model and agent selectors include **Custom…** so you can type a value that is not in the list. If
+`opencode` is not installed or the catalog fails, the form shows a warning and leaves text fields
+instead of the lists: you can still create the cron by typing the model and the agent by hand, or
+leave them empty. **Reload options** reads it again without restarting the daemon.
 
-#### Zona horaria y constructor de cron
+#### Time zone and cron builder
 
-La **zona horaria** se elige en un campo con sugerencias que incluye `UTC`, la zona del equipo y
-todas las zonas IANA. Al escribir se filtra la lista; debajo aparece la hora actual de la zona y su
-desfase respecto a UTC (`Ahora son las 09:00 (GMT+2)`). Se guarda el nombre IANA (`Europe/Madrid`,
-`UTC`…).
+The **time zone** is picked in a field with suggestions that includes `UTC`, the machine zone and all
+IANA zones. Typing filters the list; below it you see the current time in that zone and its offset
+from UTC (`Ahora son las 09:00 (GMT+2)`). The IANA name is stored (`Europe/Madrid`, `UTC`…).
 
-Con la repetición **Cron**, la expresión se construye con cinco campos: **Minuto**, **Hora**, **Día
-del mes**, **Mes** y **Día de la semana**. La **Plantilla** rellena los cinco de golpe (por ejemplo,
-«De lunes a viernes a las 09:00») y la vista previa los describe en español. Minuto `0`, hora `9`,
-día del mes `*`, mes `*` y día de la semana `1-5` producen `0 9 * * 1-5` («de lunes a viernes a las
-09:00»).
+With the **Cron** repetition, the expression is built from five fields: **Minute**, **Hour**, **Day
+of the month**, **Month** and **Day of the week**. The **Template** fills all five at once (for
+example, "Monday to Friday at 09:00") and the preview describes them in Spanish. Minute `0`, hour
+`9`, day of the month `*`, month `*` and day of the week `1-5` produce `0 9 * * 1-5` ("Monday to
+Friday at 09:00").
 
-Para expresiones que los campos no cubren, activa **Modo avanzado** y edítala entera. Al desactivarlo,
-el formulario la reparte otra vez entre los cinco campos; si no tiene exactamente cinco, se queda en
-avanzado y muestra el error.
+For expressions the fields do not cover, turn on **Advanced mode** and edit the whole expression.
+When you turn it off, the form splits it back into the five fields; if it does not have exactly five,
+it stays in advanced mode and shows the error.
 
-### Tipos de repetición
+### Repetition types
 
-| Tipo | Expresión | Ejemplo | Notas |
+| Type | Expression | Example | Notes |
 | --- | --- | --- | --- |
-| `cron` | Cinco campos: minuto, hora, día del mes, mes y día de la semana | `0 9 * * 1-5` | Se interpreta en la zona horaria del cron y se guarda en UTC. Los cambios de hora no duplican ni omiten ejecuciones |
-| `interval` | `<n>m` o `<n>h` | `15m`, `2h` | La siguiente ejecución se calcula desde el momento de ejecutar la anterior |
-| `once` | Fecha ISO-8601 con offset o `Z` | `2026-11-01T09:00:00+01:00` | La interfaz usa un selector de fecha y hora local y guarda el instante en ISO. Una fecha pasada se rechaza. Tras ejecutarse, el cron queda sin próxima ejecución |
+| `cron` | Five fields: minute, hour, day of the month, month and day of the week | `0 9 * * 1-5` | Interpreted in the cron's time zone and stored in UTC. Daylight saving changes neither duplicate nor skip runs |
+| `interval` | `<n>m` or `<n>h` | `15m`, `2h` | The next run is calculated from the moment the previous one ran |
+| `once` | ISO-8601 date with offset or `Z` | `2026-11-01T09:00:00+01:00` | The interface uses a local date and time picker and stores the instant in ISO format. A date in the past is rejected. After it runs, the cron has no next run |
 
-### Catch-up (equipo apagado o daemon detenido)
+### Catch-up (machine off or daemon stopped)
 
-Al arrancar, el daemon revisa los crons activos cuya próxima ejecución ya pasó y aplica la política
-de cada uno. También la aplica en el primer ciclo tras una suspensión si se han perdido dos o más
-ocurrencias; si solo se perdió una, la ejecuta como programada:
+On startup, the daemon checks the active crons whose next run has already passed and applies each
+one's policy. It also applies it on the first cycle after a suspend if two or more occurrences were
+missed; if only one was missed, it runs it as scheduled:
 
-| Política | Qué hace |
+| Policy | What it does |
 | --- | --- |
-| `none` | No ejecuta nada; registra una ejecución `Omitida` con el número de disparos perdidos y avanza |
-| `once` | Ejecuta una sola vez, con disparador `Recuperada`, aunque se hayan perdido varios disparos |
-| `all` | Ejecuta una vez por cada disparo perdido, hasta el **límite de recuperación** (1–100; 10 por defecto). El resto queda registrado como omitido |
+| `none` | Runs nothing; records a `Skipped` run with the number of missed firings and moves on |
+| `once` | Runs once, with the `Recovered` trigger, even if several firings were missed |
+| `all` | Runs once per missed firing, up to the **recovery limit** (1–100; 10 by default). The rest are recorded as skipped |
 
-Las ejecuciones que quedaron `En curso` cuando se paró el daemon se marcan como `Interrumpida`.
+Runs that were still `In progress` when the daemon stopped are marked as `Interrupted`.
 
-### Solapamiento
+### Overlap
 
-Si llega un disparo mientras la ejecución anterior del mismo cron sigue activa:
+If a firing arrives while the previous run of the same cron is still active:
 
-| Política | Qué hace |
+| Policy | What it does |
 | --- | --- |
-| `skip` (por defecto) | No lanza otra; registra el disparo como `Omitida` |
-| `queue` | Espera a que termine la anterior y entonces ejecuta la nueva |
-| `kill` | Termina la ejecución anterior y arranca la nueva |
+| `skip` (default) | Does not start another one; records the firing as `Skipped` |
+| `queue` | Waits for the previous run to finish and then runs the new one |
+| `kill` | Terminates the previous run and starts the new one |
 
-### Notificación
+### Notification
 
-Con **Avisar al terminar** activado, el daemon llama a `notify-send -a "LAICron"` con el nombre del
-cron, el estado, la duración y un resumen de la respuesta o del error. Puedes elegir avisar
-**siempre**, **solo si falla** o **solo si va bien**. Si no hay servidor de notificaciones, la
-ejecución no falla: queda registrada y el aviso se marca como no entregado.
+With **Notify on finish** enabled, the daemon calls `notify-send -a "LAICron"` with the cron name,
+the status, the duration and a summary of the answer or the error. You can choose to notify
+**always**, **only on failure** or **only on success**. If there is no notification server the run
+does not fail: it is recorded and the notice is marked as not delivered.
 
-### Historial y conversación
+### History and conversation
 
-El detalle del cron muestra las ejecuciones (estado, disparador, inicio, duración, código de salida y
-error) y, en los crons de IA, los mensajes de usuario y asistente. El historial se conserva 90 días y
-un máximo de 200 ejecuciones por cron; las más antiguas se van borrando.
+The cron detail view shows the runs (status, trigger, start, duration, exit code and error) and, for AI crons, the user and assistant messages. History is kept for 90 days and a maximum
+of 200 runs per cron; the oldest ones are deleted.
 
-## Datos y seguridad
+## Data and security
 
-| Qué | Dónde | Detalles |
+| What | Where | Details |
 | --- | --- | --- |
-| Base de datos | `~/.local/share/laicron/laicron.db` | SQLite en modo WAL; también aparecen `laicron.db-wal` y `laicron.db-shm` |
-| Token de la API | `~/.config/laicron/token` | 32 bytes aleatorios en hexadecimal, permisos `0600`; el directorio se crea `0700` |
-| `PATH` del servicio | `~/.config/laicron/env` | Lo escribe el instalador con permisos `0600` |
-| Unidad systemd | `~/.config/systemd/user/laicron.service` | `Restart=always`, `RestartSec=3` |
-| Entrada de menú | `~/.local/share/applications/laicron.desktop` | Lanza `packages/daemon/bin/laicron.js open` |
-| CLI | `~/.local/bin/laicron` | Enlace a `packages/daemon/bin/laicron.js` |
+| Database | `~/.local/share/laicron/laicron.db` | SQLite in WAL mode; `laicron.db-wal` and `laicron.db-shm` also appear |
+| API token | `~/.config/laicron/token` | 32 random bytes in hexadecimal, permissions `0600`; the directory is created `0700` |
+| Service `PATH` | `~/.config/laicron/env` | Written by the installer with permissions `0600` |
+| systemd unit | `~/.config/systemd/user/laicron.service` | `Restart=always`, `RestartSec=3` |
+| Menu entry | `~/.local/share/applications/laicron.desktop` | Runs `packages/daemon/bin/laicron.js open` |
+| CLI | `~/.local/bin/laicron` | Symlink to `packages/daemon/bin/laicron.js` |
 
-- La API escucha solo en `127.0.0.1:7317` por defecto y exige `Authorization: Bearer <token>` en
-  todo `/api/*`, salvo `GET /api/health`, que es público. Los ficheros estáticos de la interfaz se
-  sirven sin token, pero no contienen datos.
-- Los crons se ejecutan **con tu usuario y tus permisos**, sin sandbox ni privilegios adicionales. Un
-  cron de shell puede hacer cualquier cosa que puedas hacer tú en una terminal; un cron de IA ejecuta
-  `opencode` con tu configuración y tus permisos de `opencode`.
-- Los crons de IA se lanzan con `opencode run --format json` sin flags de auto-aprobación; `opencode`
-  aplica su propia configuración de permisos.
-- El daemon pasa a los crons su entorno y el `PATH` capturado en la instalación. No hay variables de
-  entorno por cron: todos heredan el entorno del servicio. Si `opencode` no estaba en el `PATH` al
-  instalar, los crons de IA fallarán con `opencode no está instalado o no está en el PATH`.
-- No expongas `LAICRON_HOST` a `0.0.0.0` en una red que no controles: la API seguiría pidiendo token,
-  pero dejaría de ser local.
+- The API listens only on `127.0.0.1:7317` by default and requires `Authorization: Bearer <token>` on
+  every `/api/*` route, except `GET /api/health`, which is public. The interface's static files are
+  served without a token, but they contain no data.
+- Crons run **with your user and your permissions**, without a sandbox or extra privileges. A shell
+  cron can do anything you can do in a terminal; an AI cron runs `opencode` with your configuration
+  and your `opencode` permissions.
+- AI crons are launched with `opencode run --format json` without auto-approval flags; `opencode`
+  applies its own permission configuration.
+- The daemon passes its environment and the `PATH` captured at install time to the crons. There are no
+  per-cron environment variables: they all inherit the service environment. If `opencode` was not on
+  `PATH` at install time, AI crons will fail with
+  `opencode no está instalado o no está en el PATH`.
+- Do not expose `LAICRON_HOST` as `0.0.0.0` on a network you do not control: the API would still ask
+  for a token, but it would no longer be local.
 
-## Comandos de la CLI
+## CLI commands
 
-La instalación crea el enlace `~/.local/bin/laicron`, que apunta a
-`packages/daemon/bin/laicron.js` dentro del repo. Si `~/.local/bin` no está en tu `PATH`, el
-instalador lo avisa: añádelo a tu perfil o usa `~/.local/bin/laicron` (o la ruta completa al script).
+The installation creates the `~/.local/bin/laicron` symlink, which points to
+`packages/daemon/bin/laicron.js` inside the repo. If `~/.local/bin` is not on your `PATH`, the
+installer warns you: add it to your profile or use `~/.local/bin/laicron` (or the full path to the
+script).
 
-| Comando | Qué hace |
+| Command | What it does |
 | --- | --- |
-| `laicron start` | Arranca el daemon en primer plano. Es el comando por defecto. No lo uses si el servicio de systemd ya está activo: el puerto estará ocupado |
-| `laicron open` | Abre la ventana (exige que el daemon esté activo) |
-| `laicron status` | Comprueba el daemon y muestra la versión y el último latido |
-| `laicron token` | Muestra la **ruta** del fichero del token, nunca su contenido |
-| `laicron --help` | Muestra la ayuda |
-| `laicron --version` | Muestra la versión instalada |
+| `laicron start` | Starts the daemon in the foreground. This is the default command. Do not use it if the systemd service is already active: the port will be busy |
+| `laicron open` | Opens the window (requires the daemon to be active) |
+| `laicron status` | Checks the daemon and shows the version and the last heartbeat |
+| `laicron token` | Shows the **path** of the token file, never its contents |
+| `laicron --help` | Shows the help |
+| `laicron --version` | Shows the installed version |
 
-## Variables de entorno
+## Environment variables
 
-| Variable | Por defecto | Para qué |
+| Variable | Default | What for |
 | --- | --- | --- |
-| `LAICRON_PORT` | `7317` | Puerto de la API y de la interfaz |
-| `LAICRON_HOST` | `127.0.0.1` | Interfaz de escucha de la API |
-| `LAICRON_DB_PATH` | `$XDG_DATA_HOME/laicron/laicron.db` (o `~/.local/share/laicron/laicron.db`) | Ruta de la base de datos |
-| `LAICRON_CONFIG_DIR` | `$XDG_CONFIG_HOME/laicron` (o `~/.config/laicron`) | Directorio del token y del fichero `env` |
-| `LAICRON_UI_ROOT` | `packages/ui/dist` dentro del repo | Directorio de los ficheros estáticos de la interfaz |
+| `LAICRON_PORT` | `7317` | API and interface port |
+| `LAICRON_HOST` | `127.0.0.1` | API listening interface |
+| `LAICRON_DB_PATH` | `$XDG_DATA_HOME/laicron/laicron.db` (or `~/.local/share/laicron/laicron.db`) | Database path |
+| `LAICRON_CONFIG_DIR` | `$XDG_CONFIG_HOME/laicron` (or `~/.config/laicron`) | Directory for the token and the `env` file |
+| `LAICRON_UI_ROOT` | `packages/ui/dist` inside the repo | Directory of the interface's static files |
 
-El daemon que arranca systemd lee `~/.config/laicron/env`. Para cambiar, por ejemplo, el puerto:
-añade `LAICRON_PORT=7400` a ese fichero, ejecuta `systemctl --user restart laicron` y exporta la misma
-variable en tu terminal para que `open` y `status` consulten el puerto correcto. Ten en cuenta que
-`scripts/install.sh` reescribe `~/.config/laicron/env` en cada instalación.
+The daemon started by systemd reads `~/.config/laicron/env`. To change, say, the port: add
+`LAICRON_PORT=7400` to that file, run `systemctl --user restart laicron` and export the same variable
+in your terminal so that `open` and `status` query the right port. Keep in mind that
+`scripts/install.sh` rewrites `~/.config/laicron/env` on every installation.
 
-No uses `LAICRON_PORT=0`: el servidor elige un puerto aleatorio, pero `open` y `status` seguirían
-consultando el puerto 0 y no encontrarían el daemon.
+Do not use `LAICRON_PORT=0`: the server picks a random port, but `open` and `status` would still query
+port 0 and would not find the daemon.
 
-## Desarrollo
+## Development
 
 ```sh
 pnpm install
@@ -304,30 +305,31 @@ pnpm test
 pnpm lint
 ```
 
-`pnpm test` compila todos los paquetes antes de ejecutar Vitest. Para formatear:
+`pnpm test` builds every package before running Vitest. To format:
 
 ```sh
 pnpm format        # prettier --write .
 pnpm format:check  # prettier --check .
 ```
 
-## Solución de problemas
+## Troubleshooting
 
-### El daemon está caído
+### The daemon is down
 
 ```sh
 systemctl --user status laicron
 journalctl --user -u laicron -n 50 --no-pager
 ```
 
-Si la unidad no existe, vuelve a ejecutar `bash scripts/install.sh`. Si existe pero falla, el journal
-muestra el error de arranque; systemd lo reintenta cada 3 segundos (`Restart=always`). Si acabas de
-instalar, `scripts/install.sh` ya comprueba el arranque y muestra el journal si no queda activo.
+If the unit does not exist, run `bash scripts/install.sh` again. If it exists but fails, the journal
+shows the startup error; systemd retries every 3 seconds (`Restart=always`). If you have just
+installed, `scripts/install.sh` already checks the startup and shows the journal if it does not become
+active.
 
-### La ventana dice "El planificador no responde"
+### The window says "El planificador no responde"
 
-El aviso aparece cuando la interfaz no puede confirmar que el daemon esté vivo: el proceso está caído
-o el último latido tiene más de 60 segundos. Comprueba:
+The warning appears when the interface cannot confirm that the daemon is alive: the process is down
+or the last heartbeat is older than 60 seconds. Check:
 
 ```sh
 systemctl --user status laicron
@@ -335,99 +337,99 @@ laicron status
 journalctl --user -u laicron -n 50 --no-pager
 ```
 
-Si el servicio no está activo, revisa el journal y vuelve a arrancarlo con `systemctl --user start
+If the service is not active, check the journal and start it again with `systemctl --user start
 laicron`.
 
-### La ventana no abre
+### The window does not open
 
-- Comprueba primero el daemon (`systemctl --user status laicron`).
-- Si `open` dice `No se pudo abrir la ventana (¿está instalado python3?)`, falta `python3` en el
+- Check the daemon first (`systemctl --user status laicron`).
+- If `open` says `No se pudo abrir la ventana (¿está instalado python3?)`, `python3` is missing from
   `PATH`.
-- Si `python3` existe pero la ventana no aparece, faltan GTK3 o WebKit2 (4.1, con 4.0 como
-  alternativa). `open` lanza el lanzador con la salida silenciada, así que el error no se ve;
-  compruébalo a mano:
+- If `python3` exists but the window does not appear, GTK3 or WebKit2 (4.1, with 4.0 as an
+  alternative) is missing. `open` launches the launcher with its output silenced, so the error is not
+  visible; check it by hand:
 
   ```sh
   python3 packages/platform/linux/src/window.py http://127.0.0.1:7317/
   ```
 
-  Si faltan las bibliotecas, el lanzador imprime `Error: no se encontró GTK3 o WebKit2 4.1...` y los
-  paquetes de ejemplo (`gir1.2-gtk-3.0`, `gir1.2-webkit2-4.1`). La ventana mostrará el aviso de token
-  si las bibliotecas están bien: eso confirma que el problema era otro.
+  If the libraries are missing, the launcher prints `Error: no se encontró GTK3 o WebKit2 4.1...` and
+  the example packages (`gir1.2-gtk-3.0`, `gir1.2-webkit2-4.1`). The window will show the token
+  notice if the libraries are fine: that confirms the problem was something else.
 
 ### `laicron: command not found`
 
-El enlace existe, pero `~/.local/bin` no está en tu `PATH`. Añádelo a tu perfil de shell o ejecuta
-`~/.local/bin/laicron` con la ruta completa. El instalador avisa cuando detecta este caso.
+The symlink exists, but `~/.local/bin` is not on your `PATH`. Add it to your shell profile or run
+`~/.local/bin/laicron` with the full path. The installer warns when it detects this case.
 
-### `opencode` no encontrado
+### `opencode` not found
 
-El error de la ejecución es `opencode no está instalado o no está en el PATH`. Comprueba con
-`command -v opencode`. El servicio no usa el `PATH` de tu terminal, sino el de
-`~/.config/laicron/env`; añade allí el directorio que contiene `opencode`, ejecuta
-`systemctl --user restart laicron` o vuelve a instalar con `opencode` ya visible en tu `PATH`.
+The run error is `opencode no está instalado o no está en el PATH`. Check with `command -v opencode`.
+The service does not use your terminal's `PATH`, but the one in `~/.config/laicron/env`; add the
+directory containing `opencode` there, run `systemctl --user restart laicron` or reinstall with
+`opencode` already visible on your `PATH`.
 
-### El formulario no muestra modelos ni agentes
+### The form shows no models or agents
 
-Al crear un cron de IA, en lugar de las listas de modelo y agente aparece un aviso. Significa que
-LAICron no pudo leer el catálogo de `opencode`; el aviso indica el motivo:
+When creating an AI cron, a warning appears instead of the model and agent lists. It means LAICron
+could not read the `opencode` catalog; the warning gives the reason:
 
-- `opencode no está instalado o no está en el PATH`: instálalo o añade su directorio al `PATH` del
-  servicio (ver *`opencode` no encontrado*).
-- `opencode models agotó el tiempo de espera` o `opencode models falló (código N)`: el comando tardó
-  más de cinco segundos o terminó con error. Comprueba que `opencode models` funciona en tu terminal.
+- `opencode no está instalado o no está en el PATH`: install it or add its directory to the service
+  `PATH` (see *`opencode` not found*).
+- `opencode models agotó el tiempo de espera` or `opencode models falló (código N)`: the command took
+  more than five seconds or exited with an error. Check that `opencode models` works in your terminal.
 
-Mientras el catálogo no esté disponible puedes crear el cron igualmente: escribe el modelo y el
-agente en los campos de texto. **Recargar opciones** reintenta la lectura sin reiniciar el daemon.
-Si solo falla la lectura de agentes, los modelos siguen apareciendo y la lista de agentes queda vacía;
-usa **Personalizado…** para escribir el agente a mano.
+While the catalog is unavailable you can still create the cron: type the model and the agent in the
+text fields. **Reload options** retries the read without restarting the daemon. If only the agent read
+fails, the models still appear and the agent list is empty; use **Custom…** to type the agent by
+hand.
 
-### Las notificaciones no llegan
+### Notifications do not arrive
 
-Prueba el mismo binario que usa el daemon:
+Try the same binary the daemon uses:
 
 ```sh
-notify-send -a LAICron "Prueba" "Notificación de LAICron"
+notify-send -a LAICron "Test" "LAICron notification"
 ```
 
-Si no aparece nada, no hay servidor de notificaciones o falta `notify-send`. La ejecución se guarda
-igual, pero con `notification_delivered = 0`. El journal también avisa si el notificador no se pudo
-cargar: `Aviso: no se pudo cargar el notificador de escritorio...`.
+If nothing appears, there is no notification server or `notify-send` is missing. The run is stored
+anyway, but with `notification_delivered = 0`. The journal also warns if the notifier could not be
+loaded: `Aviso: no se pudo cargar el notificador de escritorio...`.
 
-### El puerto está ocupado
+### The port is busy
 
-El journal muestra `No se pudo arrancar LAICron: listen EADDRINUSE...` y systemd reintenta cada 3
-segundos. Libera el puerto o cambia `LAICRON_PORT` (ver *Variables de entorno*). Recuerda exportar la
-misma variable al usar `open` y `status`.
+The journal shows `No se pudo arrancar LAICron: listen EADDRINUSE...` and systemd retries every 3
+seconds. Free the port or change `LAICRON_PORT` (see *Environment variables*). Remember to export the
+same variable when using `open` and `status`.
 
-### El menú o el servicio apuntan a una ruta antigua
+### The menu or the service point to an old path
 
-La unidad, la entrada `.desktop` y el enlace `~/.local/bin/laicron` guardan rutas absolutas al
-repositorio. Si has movido la carpeta, vuelve a ejecutar `bash scripts/install.sh`.
+The unit, the `.desktop` entry and the `~/.local/bin/laicron` symlink store absolute paths to the
+repository. If you moved the folder, run `bash scripts/install.sh` again.
 
-### Aviso de SQLite experimental
+### SQLite experimental warning
 
-Node 22 puede imprimir `ExperimentalWarning: SQLite is an experimental feature`. Es un aviso del
-propio Node al cargar `node:sqlite`; no impide el funcionamiento.
+Node 22 may print `ExperimentalWarning: SQLite is an experimental feature`. It is Node's own warning
+when loading `node:sqlite`; it does not affect operation.
 
-## Desinstalación
+## Uninstallation
 
 ```sh
 bash scripts/uninstall.sh
 ```
 
-El script pregunta si quieres borrar también la base de datos y el historial. Si respondes que no (o
-pulsas Enter), detiene y deshabilita `laicron.service`, borra la unidad, la entrada de menú y el
-enlace `~/.local/bin/laicron`, y **conserva** los datos en `~/.local/share/laicron`. Para borrarlos sin
-preguntar:
+The script asks whether you want to delete the database and the history too. If you answer no (or
+press Enter), it stops and disables `laicron.service`, deletes the unit, the menu entry and the
+`~/.local/bin/laicron` symlink, and **keeps** the data in `~/.local/share/laicron`. To delete it
+without asking:
 
 ```sh
 LAICRON_PURGE_DATA=1 bash scripts/uninstall.sh
 ```
 
-La desinstalación no borra `~/.config/laicron` (token y fichero `env`); puedes eliminarlo a mano si
-quieres borrar también el token. Para volver a instalar, ejecuta `scripts/install.sh` otra vez.
+Uninstallation does not delete `~/.config/laicron` (token and `env` file); you can remove it by hand
+if you also want to delete the token. To install again, run `scripts/install.sh` once more.
 
-## Licencia
+## License
 
-MIT. Ver [LICENSE](LICENSE).
+MIT. See [LICENSE](LICENSE).
