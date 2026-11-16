@@ -3,6 +3,7 @@ import type { DatabaseSync } from "node:sqlite";
 
 import type { Message } from "../types.js";
 import { asNumber, toMessage } from "./mappers.js";
+import { t } from "../i18n.js";
 import type { MessageRepository } from "./repository-types.js";
 
 const MESSAGE_COLUMNS = "id, job_id, run_id, role, content, created_at";
@@ -34,7 +35,7 @@ export function createMessageRepository(db: DatabaseSync): MessageRepository {
 
       const created = getMessage(id);
       if (created === null) {
-        throw new Error("No se pudo leer el mensaje recién creado.");
+        throw new Error(t("db.messageCreateFailed"));
       }
       return created;
     },

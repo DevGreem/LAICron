@@ -10,6 +10,7 @@ import {
   type UpdateJobInput,
 } from "@laicron/core/db";
 import { computeNextRun, validateSchedule } from "@laicron/core/schedule";
+import { t } from "@laicron/core/i18n";
 
 import {
   RequestValidationError,
@@ -39,7 +40,7 @@ function systemTimezone(): string {
 function requireJob(deps: JobRouteDeps, id: string): Job {
   const job = deps.jobs.get(id);
   if (job === null) {
-    throw new NotFoundError(`No se encontró el cron ${id}.`);
+    throw new NotFoundError(t("db.jobNotFound", { id }));
   }
   return job;
 }
@@ -47,7 +48,7 @@ function requireJob(deps: JobRouteDeps, id: string): Job {
 async function readBody(req: IncomingMessage): Promise<Record<string, unknown>> {
   const body = await readJsonBody(req);
   if (!isJsonObject(body)) {
-    throw new RequestValidationError("El cuerpo de la petición debe ser un objeto JSON.");
+    throw new RequestValidationError(t("api.bodyNotObject"));
   }
   return body;
 }
@@ -154,14 +155,11 @@ function parseIntegerParameter(
     return fallback;
   }
   if (!/^\d+$/.test(raw)) {
-    throw new RequestValidationError(`El parámetro "${field}" debe ser un entero.`, field);
+    throw new RequestValidationError(t("api.paramInteger", { field }), field);
   }
   const value = Number(raw);
   if (!Number.isSafeInteger(value) || value < min || value > max) {
-    throw new RequestValidationError(
-      `El parámetro "${field}" debe estar entre ${min} y ${max}.`,
-      field,
-    );
+    throw new RequestValidationError(t("api.paramRange", { field, min, max }), field);
   }
   return value;
 }
@@ -201,11 +199,16 @@ function listMessages(deps: JobRouteDeps, res: ServerResponse, url: URL, id: str
   sendJson(res, 200, { messages, total, limit, offset });
 }
 
+function getJobUsage(deps: JobRouteDeps, res: ServerResponse, id: string): void {
+  requireJob(deps, id);
+  sendJson(res, 200, { usage: deps.runs.usageByJob(id) });
+}
+
 function decodeJobId(raw: string): string {
   try {
     return decodeURIComponent(raw);
   } catch {
-    throw new RequestValidationError("El identificador del cron no es válido.", "id");
+    throw new RequestValidationError(t("api.invalidJobId"), "id");
   }
 }
 
@@ -296,6 +299,12 @@ export async function handleJobsRoute(
         return false;
       }
       listMessages(deps, res, url, id);
+      return true;
+    case "usage":
+      if (method !== "GET") {
+        return false;
+      }
+      getJobUsage(deps, res, id);
       return true;
     default:
       return false;

@@ -2,6 +2,7 @@ import { CronExpressionParser } from "cron-parser";
 
 import type { ScheduleKind } from "../types.js";
 import { ScheduleError } from "./errors.js";
+import { t } from "../i18n.js";
 
 const MINUTE_MS = 60_000;
 const HOUR_MS = 3_600_000;
@@ -13,10 +14,7 @@ const ONCE_PATTERN =
 
 export function assertScheduleKind(kind: string): asserts kind is ScheduleKind {
   if (kind !== "cron" && kind !== "interval" && kind !== "once") {
-    throw new ScheduleError(
-      "scheduleKind",
-      `El tipo de repetición "${kind}" no es válido; debe ser cron, interval u once.`,
-    );
+    throw new ScheduleError("scheduleKind", t("schedule.kindInvalid", { kind }));
   }
 }
 
@@ -93,17 +91,14 @@ export function parseCronSpec(expression: string, timezone: string): CronSpec {
   const trimmed = expression.trim();
   const fields = trimmed.split(/\s+/);
   if (fields.length !== 5) {
-    throw new ScheduleError(
-      "scheduleExpr",
-      "La expresión cron debe tener exactamente cinco campos (minuto hora día mes día-semana).",
-    );
+    throw new ScheduleError("scheduleExpr", t("schedule.cronFields"));
   }
   try {
     // Parsing is enough to validate the syntax; the next occurrence is
     // computed later with the real reference instant.
     CronExpressionParser.parse(trimmed, { tz: timezone, currentDate: new Date(0) });
   } catch {
-    throw new ScheduleError("scheduleExpr", `La expresión cron "${expression}" no es válida.`);
+    throw new ScheduleError("scheduleExpr", t("schedule.cronInvalid", { expression }));
   }
 
   return {
@@ -117,14 +112,11 @@ export function parseCronSpec(expression: string, timezone: string): CronSpec {
 export function parseInterval(expression: string): number {
   const match = INTERVAL_PATTERN.exec(expression.trim());
   if (match === null) {
-    throw new ScheduleError(
-      "scheduleExpr",
-      "El intervalo debe tener el formato <n>m o <n>h, por ejemplo 15m o 2h.",
-    );
+    throw new ScheduleError("scheduleExpr", t("schedule.intervalFormat"));
   }
   const amount = Number(match[1]);
   if (!Number.isSafeInteger(amount) || amount < 1) {
-    throw new ScheduleError("scheduleExpr", "El intervalo debe ser un entero mayor o igual que 1.");
+    throw new ScheduleError("scheduleExpr", t("schedule.intervalPositive"));
   }
   return amount * (match[2] === "h" ? HOUR_MS : MINUTE_MS);
 }
@@ -133,14 +125,11 @@ export function parseInterval(expression: string): number {
 export function parseOnceInstant(expression: string): number {
   const trimmed = expression.trim();
   if (!ONCE_PATTERN.test(trimmed)) {
-    throw new ScheduleError(
-      "scheduleExpr",
-      "La ejecución única necesita una fecha ISO-8601 con zona horaria explícita (Z u offset).",
-    );
+    throw new ScheduleError("scheduleExpr", t("schedule.onceIso"));
   }
   const instant = Date.parse(trimmed);
   if (!Number.isFinite(instant)) {
-    throw new ScheduleError("scheduleExpr", `La fecha "${expression}" no es válida.`);
+    throw new ScheduleError("scheduleExpr", t("schedule.dateInvalid", { expression }));
   }
   return instant;
 }

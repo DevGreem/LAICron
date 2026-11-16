@@ -9,6 +9,7 @@ import type { RecoveryReport } from "@laicron/core/clock";
 import { closeDatabase, createRepositories, openDatabase, type Database } from "@laicron/core/db";
 import { createEngine } from "@laicron/core/engine";
 import { createRunnerRegistry } from "@laicron/core/runners";
+import { getLocale, localeFromEnv, setBaseLocale, t } from "@laicron/core/i18n";
 import { createNotifier } from "@laicron/platform-linux";
 
 import { createApiServer, type ApiServer } from "./api/index.js";
@@ -16,20 +17,6 @@ import { VERSION, ensureToken, loadConfig, readToken, type Config } from "./conf
 
 /** Maximum time to wait for `/api/health` from `open` and `status`. */
 const HEALTH_TIMEOUT_MS = 2_000;
-
-const HELP_TEXT = `LAICron — planificador local de tareas
-
-Uso: laicron [comando]
-
-Comandos:
-  start        Arranca el daemon en primer plano (comando por defecto)
-  open         Abre la ventana de LAICron
-  status       Muestra si el daemon está activo y su último latido
-  token        Muestra la ruta del fichero del token (nunca su contenido)
-
-Opciones:
-  -h, --help       Muestra esta ayuda
-  -v, --version    Muestra la versión instalada`;
 
 /** Resources opened by `start`, tracked so a failure can release them. */
 interface DaemonResources {
@@ -54,7 +41,7 @@ function isRecord(value: unknown): value is Record<string, unknown> {
 }
 
 function printHelp(): void {
-  console.log(HELP_TEXT);
+  console.log(t("cli.help"));
 }
 
 function parseHealth(body: unknown): HealthResponse | null {
@@ -86,7 +73,7 @@ async function fetchHealth(config: Config): Promise<HealthResponse | null> {
 }
 
 function formatTimestamp(value: number): string {
-  return new Intl.DateTimeFormat("es-ES", {
+  return new Intl.DateTimeFormat(getLocale() === "es" ? "es-ES" : "en-US", {
     dateStyle: "medium",
     timeStyle: "medium",
   }).format(new Date(value));
@@ -99,13 +86,19 @@ function printRecoveryReport(report: RecoveryReport): void {
     return;
   }
 
-  const parts = [`${report.interrupted} ejecución(es) interrumpida(s)`];
+  const parts = [t("cli.recoveryInterrupted", { count: report.interrupted })];
   if (report.jobs.length > 0) {
-    const jobs = report.jobs.length === 1 ? "1 cron" : `${report.jobs.length} crons`;
-    parts.push(`${report.executed} recuperada(s)`, `${report.skipped} omitida(s) en ${jobs}`);
+    const jobs =
+      report.jobs.length === 1
+        ? t("cli.jobsOne")
+        : t("cli.jobsMany", { count: report.jobs.length });
+    parts.push(
+      t("cli.recoveryExecuted", { count: report.executed }),
+      t("cli.recoverySkipped", { count: report.skipped, jobs }),
+    );
   }
 
-  console.log(`Recuperación: ${parts.join(", ")}.`);
+  console.log(t("cli.recoveryLine", { details: parts.join(", ") }));
 }
 
 /**
@@ -119,7 +112,7 @@ async function shutdown(resources: DaemonResources): Promise<void> {
     try {
       await clock.stop();
     } catch (error) {
-      console.error(`Error al detener el reloj: ${errorMessage(error)}`);
+      console.error(t("cli.clockStopError", { detail: errorMessage(error) }));
     }
   }
 
@@ -127,7 +120,7 @@ async function shutdown(resources: DaemonResources): Promise<void> {
     try {
       await engine.cancelAll();
     } catch (error) {
-      console.error(`Error al cancelar las ejecuciones: ${errorMessage(error)}`);
+      console.error(t("cli.cancelError", { detail: errorMessage(error) }));
     }
   }
 
@@ -135,7 +128,7 @@ async function shutdown(resources: DaemonResources): Promise<void> {
     try {
       await server.stop();
     } catch (error) {
-      console.error(`Error al detener el servidor HTTP: ${errorMessage(error)}`);
+      console.error(t("cli.serverStopError", { detail: errorMessage(error) }));
     }
   }
 
@@ -143,7 +136,7 @@ async function shutdown(resources: DaemonResources): Promise<void> {
     try {
       closeDatabase(db);
     } catch (error) {
-      console.error(`Error al cerrar la base de datos: ${errorMessage(error)}`);
+      console.error(t("cli.dbCloseError", { detail: errorMessage(error) }));
     }
   }
 }
@@ -217,11 +210,11 @@ async function startDaemon(): Promise<number> {
     resources.server = server;
 
     const port = await server.start(config.port, config.host);
-    console.log(`LAICron escuchando en http://${config.host}:${port}`);
+    console.log(t("cli.listening", { url: `http://${config.host}:${port}` }));
 
     return await waitForShutdown(resources);
   } catch (error) {
-    console.error(`No se pudo arrancar LAICron: ${errorMessage(error)}`);
+    console.error(t("cli.startFailed", { detail: errorMessage(error) }));
     await shutdown(resources);
     return 1;
   }
@@ -233,12 +226,12 @@ async function openWindow(): Promise<number> {
   const token = readToken(config.configDir);
 
   if (token === null) {
-    console.error("No se pudo leer el token de LAICron.");
+    console.error(t("cli.tokenUnreadable"));
     return 1;
   }
 
   if ((await fetchHealth(config)) === null) {
-    console.error("El daemon de LAICron no está activo. Arráncalo con: laicron start");
+    console.error(t("cli.daemonInactive"));
     return 1;
   }
 
@@ -247,7 +240,7 @@ async function openWindow(): Promise<number> {
   );
 
   if (!existsSync(windowScript)) {
-    console.error(`No se encontró el lanzador de la ventana: ${windowScript}`);
+    console.error(t("cli.windowLauncherMissing", { path: windowScript }));
     return 1;
   }
 
@@ -265,7 +258,7 @@ async function openWindow(): Promise<number> {
       child.once("error", reject);
     });
   } catch (error) {
-    console.error(`No se pudo abrir la ventana (¿está instalado python3?): ${errorMessage(error)}`);
+    console.error(t("cli.windowFailed", { detail: errorMessage(error) }));
     return 1;
   }
 
@@ -278,16 +271,16 @@ async function printStatus(): Promise<number> {
   const health = await fetchHealth(config);
 
   if (health === null) {
-    console.log("LAICron está inactivo.");
+    console.log(t("cli.inactive"));
     return 1;
   }
 
   const version = health.version ?? config.version;
   const heartbeat =
-    health.heartbeatAt === null ? "todavía sin latido" : formatTimestamp(health.heartbeatAt);
+    health.heartbeatAt === null ? t("cli.noHeartbeat") : formatTimestamp(health.heartbeatAt);
 
-  console.log(`LAICron está activo (versión ${version}).`);
-  console.log(`Último latido: ${heartbeat}`);
+  console.log(t("cli.active", { version }));
+  console.log(t("cli.lastHeartbeat", { value: heartbeat }));
   return 0;
 }
 
@@ -302,6 +295,7 @@ function printTokenPath(): number {
  * process itself, so the binary can decide when to exit.
  */
 export async function main(argv: string[]): Promise<number> {
+  setBaseLocale(localeFromEnv());
   const command = argv[0] ?? "start";
 
   try {
@@ -324,12 +318,12 @@ export async function main(argv: string[]): Promise<number> {
         console.log(VERSION);
         return 0;
       default:
-        console.error(`Comando desconocido: ${command}`);
+        console.error(t("cli.unknownCommand", { command }));
         printHelp();
         return 1;
     }
   } catch (error) {
-    console.error(`Error: ${errorMessage(error)}`);
+    console.error(t("cli.error", { detail: errorMessage(error) }));
     return 1;
   }
 }

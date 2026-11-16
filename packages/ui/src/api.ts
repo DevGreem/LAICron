@@ -1,15 +1,21 @@
+import { getLocale, t } from "./i18n.js";
 import type {
   Health,
   Job,
   JobInput,
   JobListResponse,
   JobResponse,
+  JobUsage,
   MessagePage,
   OpencodeOptions,
   Run,
   RunPage,
   RunResponse,
 } from "./types.js";
+
+interface UsageResponse {
+  usage: JobUsage;
+}
 
 interface ErrorPayload {
   error?: {
@@ -38,14 +44,14 @@ export class ApiError extends Error {
 export function messageFromError(error: unknown): string {
   if (error instanceof ApiError) {
     if (error.status === 401) {
-      return "El token de acceso no es válido. Abre LAICron desde el menú.";
+      return t("api.invalidToken");
     }
     return error.message;
   }
   if (error instanceof Error && error.message.length > 0) {
     return error.message;
   }
-  return "Ha ocurrido un error inesperado.";
+  return t("api.unexpected");
 }
 
 async function toApiError(response: Response): Promise<ApiError> {
@@ -56,7 +62,7 @@ async function toApiError(response: Response): Promise<ApiError> {
     payload = null;
   }
 
-  const message = payload?.error?.message ?? `Error del servidor (${response.status}).`;
+  const message = payload?.error?.message ?? t("api.serverError", { status: response.status });
   const code = payload?.error?.code ?? "http_error";
   const field = payload?.error?.field;
   return new ApiError(message, response.status, code, field);
@@ -73,6 +79,7 @@ export class ApiClient {
   private async request<T>(path: string, init: RequestInit = {}): Promise<T> {
     const headers = new Headers(init.headers);
     headers.set("authorization", `Bearer ${this.token}`);
+    headers.set("accept-language", getLocale());
     if (init.body !== undefined) {
       headers.set("content-type", "application/json");
     }
@@ -81,7 +88,7 @@ export class ApiClient {
     try {
       response = await fetch(path, { ...init, headers, cache: "no-store" });
     } catch {
-      throw new ApiError("No se pudo conectar con el planificador.", 0, "network_error");
+      throw new ApiError(t("api.network"), 0, "network_error");
     }
 
     if (!response.ok) {
@@ -94,11 +101,7 @@ export class ApiClient {
     try {
       return (await response.json()) as T;
     } catch {
-      throw new ApiError(
-        "La respuesta del servidor no es JSON válido.",
-        response.status,
-        "invalid_response",
-      );
+      throw new ApiError(t("api.invalidResponse"), response.status, "invalid_response");
     }
   }
 
@@ -175,6 +178,11 @@ export class ApiClient {
     return this.request<RunPage>(`/api/jobs/${encodeURIComponent(id)}/runs?${query.toString()}`);
   }
 
+  async getJobUsage(id: string): Promise<JobUsage> {
+    const data = await this.request<UsageResponse>(`/api/jobs/${encodeURIComponent(id)}/usage`);
+    return data.usage;
+  }
+
   async listMessages(id: string, page: { limit: number; offset: number }): Promise<MessagePage> {
     const query = new URLSearchParams({
       limit: String(page.limit),
@@ -191,7 +199,7 @@ export async function fetchHealth(): Promise<Health> {
   const response = await fetch("/api/health", { cache: "no-store" });
   if (!response.ok) {
     throw new ApiError(
-      `El planificador respondió ${response.status}.`,
+      t("api.healthStatus", { status: response.status }),
       response.status,
       "http_error",
     );

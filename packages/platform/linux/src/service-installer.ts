@@ -5,6 +5,8 @@ import { homedir, userInfo } from "node:os";
 import { delimiter, dirname, join, resolve } from "node:path";
 import { fileURLToPath } from "node:url";
 
+import { localeFromEnv, setBaseLocale, t } from "@laicron/core/i18n";
+
 /** Result of running an external command. */
 export interface ExecResult {
   code: number;
@@ -107,7 +109,7 @@ function substitute(template: string, values: Readonly<Record<string, string>>):
 
   const unresolved = /@[A-Z0-9_]+@/u.exec(rendered);
   if (unresolved !== null) {
-    throw new Error(`La plantilla contiene una variable sin resolver: ${unresolved[0]}`);
+    throw new Error(t("installer.unresolved", { name: unresolved[0] }));
   }
 
   return rendered;
@@ -143,8 +145,9 @@ async function fileExists(path: string): Promise<boolean> {
 async function runSystemctl(exec: ExecFn, args: string[]): Promise<void> {
   const result = await exec("systemctl", args);
   if (result.code !== 0) {
-    const detail = result.stderr.trim() || result.stdout.trim() || `código ${result.code}`;
-    throw new Error(`El comando "systemctl ${args.join(" ")}" falló: ${detail}`);
+    const detail =
+      result.stderr.trim() || result.stdout.trim() || t("installer.code", { code: result.code });
+    throw new Error(t("installer.systemctlFailed", { args: args.join(" "), detail }));
   }
 }
 
@@ -176,7 +179,7 @@ async function enableLinger(exec: ExecFn): Promise<void> {
   try {
     username = userInfo().username;
   } catch {
-    console.log("Aviso: no se pudo determinar el usuario para loginctl enable-linger.");
+    console.log(t("installer.lingerUser"));
     return;
   }
 
@@ -185,17 +188,14 @@ async function enableLinger(exec: ExecFn): Promise<void> {
     result = await exec("loginctl", ["enable-linger", username]);
   } catch (error) {
     const detail = error instanceof Error ? error.message : String(error);
-    console.log(
-      `Aviso: no se pudo habilitar la persistencia de sesión con "loginctl enable-linger ${username}": ${detail}`,
-    );
+    console.log(t("installer.lingerFailed", { user: username, detail }));
     return;
   }
 
   if (result.code !== 0) {
-    const detail = result.stderr.trim() || result.stdout.trim() || `código ${result.code}`;
-    console.log(
-      `Aviso: no se pudo habilitar la persistencia de sesión con "loginctl enable-linger ${username}": ${detail}`,
-    );
+    const detail =
+      result.stderr.trim() || result.stdout.trim() || t("installer.code", { code: result.code });
+    console.log(t("installer.lingerFailed", { user: username, detail }));
   }
 }
 
@@ -234,9 +234,7 @@ export function createSystemdInstaller(): ServiceInstaller {
       await replaceSymlink(paths.binLink, binTarget);
 
       if (!isDirectoryOnPath(opts.pathEnv, paths.binDir)) {
-        console.log(
-          `Aviso: ${paths.binDir} no está en el PATH. Añádelo para ejecutar "laicron" desde cualquier sitio.`,
-        );
+        console.log(t("installer.pathWarning", { dir: paths.binDir }));
       }
 
       await enableLinger(exec);
@@ -259,9 +257,9 @@ export function createSystemdInstaller(): ServiceInstaller {
 
       if (opts.purgeData === true) {
         await rm(paths.dataDir, { recursive: true, force: true });
-        console.log("Se han borrado la base de datos y el historial de LAICron.");
+        console.log(t("installer.purged"));
       } else {
-        console.log(`Los datos de LAICron se conservan en ${paths.dataDir}`);
+        console.log(t("installer.dataKept", { dir: paths.dataDir }));
       }
     },
 
@@ -307,31 +305,38 @@ function cliContext(): { repoRoot: string; nodeBin: string; pathEnv: string } {
 }
 
 async function runCli(argv: string[]): Promise<number> {
+  setBaseLocale(localeFromEnv());
   const [command, ...args] = argv;
   const installer = createSystemdInstaller();
 
   if (command === "install") {
     const context = cliContext();
-    console.log(`Instalando LAICron desde ${context.repoRoot}...`);
+    console.log(t("installer.installing", { root: context.repoRoot }));
     await installer.install(context);
-    console.log("Servicio laicron.service instalado y activo.");
+    console.log(t("installer.installed"));
     return 0;
   }
 
   if (command === "uninstall") {
     await installer.uninstall({ purgeData: args.includes("--purge-data") });
-    console.log("Servicio laicron.service desinstalado.");
+    console.log(t("installer.uninstalled"));
     return 0;
   }
 
   if (command === "status") {
     const result = await installer.status();
-    console.log(`Instalado: ${result.installed ? "sí" : "no"}`);
-    console.log(`Activo: ${result.active ? "sí" : "no"}`);
+    console.log(
+      t("installer.installedLine", {
+        value: result.installed ? t("installer.yes") : t("installer.no"),
+      }),
+    );
+    console.log(
+      t("installer.activeLine", { value: result.active ? t("installer.yes") : t("installer.no") }),
+    );
     return 0;
   }
 
-  console.error("Uso: service-installer.js <install|uninstall [--purge-data]|status>");
+  console.error(t("installer.usage"));
   return 1;
 }
 
@@ -342,7 +347,7 @@ if (isMainModule()) {
     },
     (error: unknown) => {
       const message = error instanceof Error ? error.message : String(error);
-      console.error(`Error: ${message}`);
+      console.error(t("cli.error", { detail: message }));
       process.exitCode = 1;
     },
   );

@@ -1,3 +1,5 @@
+import { t } from "./i18n.js";
+
 /** SSE client built on `fetch` so the Authorization header can be sent. */
 
 export type SseHandler = (type: string, data: unknown) => void;
@@ -84,7 +86,7 @@ export function connectEvents(
       });
 
       if (!response.ok || response.body === null) {
-        throw new Error(`No se pudo abrir el canal de eventos (${response.status}).`);
+        throw new Error(t("events.openFailed", { status: response.status }));
       }
 
       setConnected(true);

@@ -157,6 +157,12 @@ export function toRun(row: Row): Run {
     sessionId: asNullableString(row["session_id"]),
     missedCount: asNumber(row["missed_count"]),
     notificationDelivered: asNullableBoolean(row["notification_delivered"]),
+    inputTokens: asNullableNumber(row["input_tokens"]),
+    outputTokens: asNullableNumber(row["output_tokens"]),
+    reasoningTokens: asNullableNumber(row["reasoning_tokens"]),
+    cacheReadTokens: asNullableNumber(row["cache_read_tokens"]),
+    cacheWriteTokens: asNullableNumber(row["cache_write_tokens"]),
+    costUsd: asNullableNumber(row["cost_usd"]),
   };
 }
 

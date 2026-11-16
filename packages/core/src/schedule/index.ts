@@ -13,6 +13,7 @@ import {
   parseOnceInstant,
 } from "./expressions.js";
 import { assertTimezone, formatLocalWallClock } from "./wall-clock.js";
+import { t } from "../i18n.js";
 
 export { ScheduleError } from "./errors.js";
 export type { ScheduleField } from "./errors.js";
@@ -25,7 +26,7 @@ interface NextRunOptions {
 
 function assertInstant(value: number, name: string): void {
   if (!Number.isFinite(value)) {
-    throw new TypeError(`"${name}" debe ser un instante en milisegundos.`);
+    throw new TypeError(t("schedule.instantMs", { name }));
   }
 }
 
@@ -51,7 +52,7 @@ export function validateSchedule(kind: ScheduleKind, expr: string, timezone: str
     case "once": {
       const instant = parseOnceInstant(expr);
       if (instant < Date.now()) {
-        throw new ScheduleError("scheduleExpr", "La fecha y hora indicadas ya pasaron.");
+        throw new ScheduleError("scheduleExpr", t("schedule.pastInstant"));
       }
       return;
     }

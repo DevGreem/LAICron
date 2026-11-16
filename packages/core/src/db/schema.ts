@@ -3,8 +3,9 @@ import type { DatabaseSync } from "node:sqlite";
 /**
  * SQLite schema for LAICron.
  *
- * `trigger` is a reserved word in SQLite, so it is always quoted. All statements are idempotent
- * so that opening an existing database does not require a migration step yet.
+ * `trigger` is a reserved word in SQLite, so it is always quoted. Table creation is idempotent and
+ * columns added after the first release are handled by guarded migrations, so opening an existing
+ * database on every startup is safe.
  */
 export const SCHEMA_SQL = `
 CREATE TABLE IF NOT EXISTS jobs (
@@ -50,7 +51,13 @@ CREATE TABLE IF NOT EXISTS runs (
   error TEXT,
   session_id TEXT,
   missed_count INTEGER NOT NULL DEFAULT 0,
-  notification_delivered INTEGER
+  notification_delivered INTEGER,
+  input_tokens INTEGER,
+  output_tokens INTEGER,
+  reasoning_tokens INTEGER,
+  cache_read_tokens INTEGER,
+  cache_write_tokens INTEGER,
+  cost_usd REAL
 );
 
 CREATE TABLE IF NOT EXISTS messages (
@@ -80,6 +87,23 @@ function jobColumns(db: DatabaseSync): string[] {
     .map((column) => String(column["name"]));
 }
 
+function runColumns(db: DatabaseSync): string[] {
+  return db
+    .prepare("PRAGMA table_info('runs')")
+    .all()
+    .map((column) => String(column["name"]));
+}
+
+/** Columns added to `runs` for per-execution consumption; they must stay nullable. */
+const RUN_USAGE_COLUMNS: ReadonlyArray<{ name: string; type: "INTEGER" | "REAL" }> = [
+  { name: "input_tokens", type: "INTEGER" },
+  { name: "output_tokens", type: "INTEGER" },
+  { name: "reasoning_tokens", type: "INTEGER" },
+  { name: "cache_read_tokens", type: "INTEGER" },
+  { name: "cache_write_tokens", type: "INTEGER" },
+  { name: "cost_usd", type: "REAL" },
+];
+
 /**
  * Adds columns introduced after the first release to databases created by older versions.
  * Each migration is guarded by a column check, so it is safe to run on every startup.
@@ -91,8 +115,19 @@ function migrateJobs(db: DatabaseSync): void {
   }
 }
 
+/** Adds the consumption columns one by one, leaving existing runs without data as `NULL`. */
+function migrateRuns(db: DatabaseSync): void {
+  const columns = runColumns(db);
+  for (const column of RUN_USAGE_COLUMNS) {
+    if (!columns.includes(column.name)) {
+      db.exec(`ALTER TABLE runs ADD COLUMN ${column.name} ${column.type}`);
+    }
+  }
+}
+
 /** Applies the schema to an open database. Safe to call on every startup. */
 export function applySchema(db: DatabaseSync): void {
   db.exec(SCHEMA_SQL);
   migrateJobs(db);
+  migrateRuns(db);
 }

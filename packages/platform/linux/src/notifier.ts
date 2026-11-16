@@ -1,6 +1,8 @@
 import { spawn, type ChildProcess } from "node:child_process";
 
 import type { NotificationPayload, Notifier, RunStatus } from "@laicron/core";
+import { getLocale, t } from "@laicron/core/i18n";
+import type { MessageKey } from "@laicron/core/i18n";
 import { summarize } from "@laicron/core/notifications";
 
 /** Binary used unless another one is given (GNOME and most desktops ship it). */
@@ -10,19 +12,19 @@ const APP_NAME = "LAICron";
 /** A notification that does not answer within this time counts as undelivered. */
 const SPAWN_TIMEOUT_MS = 5_000;
 
-const STATUS_LABELS: Readonly<Record<RunStatus, string>> = {
-  queued: "queued",
-  running: "running",
-  success: "Correcta",
-  failed: "Fallida",
-  timeout: "Agotada",
-  interrupted: "Interrumpida",
-  skipped: "Omitida",
+const STATUS_KEYS: Readonly<Record<RunStatus, MessageKey>> = {
+  queued: "notify.status.queued",
+  running: "notify.status.running",
+  success: "notify.status.success",
+  failed: "notify.status.failed",
+  timeout: "notify.status.timeout",
+  interrupted: "notify.status.interrupted",
+  skipped: "notify.status.skipped",
 };
 
 /**
- * Formats a duration as human-readable Spanish text:
- * `850 ms`, `12,3 s`, `2 min 5 s`.
+ * Formats a duration as human-readable text with the locale's decimal
+ * separator: `850 ms`, `12,3 s`, `2 min 5 s`.
  */
 function formatDuration(durationMs: number): string {
   const rounded = Number.isFinite(durationMs) && durationMs > 0 ? Math.round(durationMs) : 0;
@@ -31,7 +33,11 @@ function formatDuration(durationMs: number): string {
     return `${rounded} ms`;
   }
   if (rounded < 59_950) {
-    return `${(rounded / 1000).toFixed(1).replace(".", ",")} s`;
+    const seconds = new Intl.NumberFormat(getLocale() === "es" ? "es-ES" : "en-US", {
+      minimumFractionDigits: 1,
+      maximumFractionDigits: 1,
+    }).format(rounded / 1000);
+    return `${seconds} s`;
   }
 
   const totalSeconds = Math.round(rounded / 1000);
@@ -46,7 +52,7 @@ function urgencyFor(status: RunStatus): "normal" | "critical" {
 }
 
 function titleFor(payload: NotificationPayload): string {
-  return `${payload.jobName} · ${STATUS_LABELS[payload.status]}`;
+  return `${payload.jobName} · ${t(STATUS_KEYS[payload.status])}`;
 }
 
 function bodyFor(payload: NotificationPayload): string {

@@ -1,4 +1,5 @@
 import { ScheduleError } from "./errors.js";
+import { t } from "../i18n.js";
 
 const HOUR_MS = 3_600_000;
 
@@ -61,18 +62,15 @@ function numberFrom(parts: Record<string, string>, key: string): number {
  */
 export function assertTimezone(timezone: string): void {
   if (typeof timezone !== "string" || timezone.trim().length === 0) {
-    throw new ScheduleError("timezone", "La zona horaria es obligatoria.");
+    throw new ScheduleError("timezone", t("schedule.timezoneRequired"));
   }
   if (/^[+-]\d{2}:?\d{2}$/.test(timezone.trim())) {
-    throw new ScheduleError(
-      "timezone",
-      `La zona horaria "${timezone}" debe ser un nombre IANA, no un desplazamiento.`,
-    );
+    throw new ScheduleError("timezone", t("schedule.timezoneOffset", { timezone }));
   }
   try {
     wallFormatter(timezone);
   } catch {
-    throw new ScheduleError("timezone", `La zona horaria "${timezone}" no es válida.`);
+    throw new ScheduleError("timezone", t("schedule.timezoneInvalid", { timezone }));
   }
 }
 
